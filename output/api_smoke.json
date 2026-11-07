@@ -1,0 +1,1547 @@
+{
+  "problem": "Problem 7: Backend Routes",
+  "run_date": "2026-11-06",
+  "how_tested": "FastAPI TestClient (one event loop, like uvicorn) against backend/main.py, with CAMPUS_DB_PATH pointing the routes and the agents' MCP server at a scratch copy of data/campus_customs_new.db. Live agent runs used Portkey.",
+  "summary": {
+    "steps": 17,
+    "passed": 17
+  },
+  "steps": [
+    {
+      "step": 1,
+      "name": "reset to original data",
+      "request": "POST /api/reset",
+      "status_code": 200,
+      "expected_status": 200,
+      "check": "balance 3400.0, 3 open",
+      "seconds": 0.0,
+      "result": "PASS",
+      "response": {
+        "reset": true,
+        "open_tickets": 3,
+        "checking_balance": 3400.0,
+        "note": "Audit trail kept: it is append-only."
+      }
+    },
+    {
+      "step": 2,
+      "name": "list tickets",
+      "request": "GET /api/tickets",
+      "status_code": 200,
+      "expected_status": 200,
+      "check": "[(101, 'open'), (102, 'open'), (103, 'open')]",
+      "seconds": 0.0,
+      "result": "PASS",
+      "response": [
+        {
+          "id": 101,
+          "type": "customer_order",
+          "requester": "Tauhid Zaman",
+          "subject": "Bulldog tee",
+          "sku": "CC-TEE-WHITE",
+          "size": "S",
+          "qty": 1,
+          "lease_id": null,
+          "invoice_id": 501,
+          "status": "open",
+          "notes": "Needs a tee in size S.",
+          "created_at": "2026-08-31T09:15:00-04:00",
+          "last_run": null,
+          "pending_approvals": 0
+        },
+        {
+          "id": 102,
+          "type": "rent_notice",
+          "requester": "Elm City Properties",
+          "subject": "Rent due",
+          "sku": null,
+          "size": null,
+          "qty": null,
+          "lease_id": 1,
+          "invoice_id": null,
+          "status": "open",
+          "notes": "Email: shop rent due in 2 days.",
+          "created_at": "2026-08-31T11:05:00-04:00",
+          "last_run": null,
+          "pending_approvals": 0
+        },
+        {
+          "id": 103,
+          "type": "price_override",
+          "requester": "Yale AI Club",
+          "subject": "Bulk hoodie discount",
+          "sku": "CC-HOOD-NAVY",
+          "size": "M",
+          "qty": 20,
+          "lease_id": null,
+          "invoice_id": null,
+          "status": "open",
+          "notes": "Student org wants 20 hoodies, size M, asking for a bulk discount.",
+          "created_at": "2026-08-31T16:55:00-04:00",
+          "last_run": null,
+          "pending_approvals": 0
+        }
+      ]
+    },
+    {
+      "step": 3,
+      "name": "checking balance",
+      "request": "GET /api/cash",
+      "status_code": 200,
+      "expected_status": 200,
+      "check": "$3,400.00 matches cash_accounts",
+      "seconds": 0.0,
+      "result": "PASS",
+      "response": {
+        "name": "checking",
+        "balance": 3400.0,
+        "date": "2026-08-31"
+      }
+    },
+    {
+      "step": 4,
+      "name": "agents before any run",
+      "request": "GET /api/tickets/102/agents",
+      "status_code": 404,
+      "expected_status": 404,
+      "check": null,
+      "seconds": 0.0,
+      "result": "PASS",
+      "response": {
+        "detail": "Ticket 102 has no agent run yet. POST /api/tickets/102/run first."
+      }
+    },
+    {
+      "step": 5,
+      "name": "run the agent team on ticket 102",
+      "request": "POST /api/tickets/102/run",
+      "status_code": 200,
+      "expected_status": 200,
+      "check": "completed, 12 steps, approvals [(1, 'rent', 2400.0)]",
+      "seconds": 3.34,
+      "result": "PASS",
+      "response": {
+        "run_id": "6227dd9a857d",
+        "ticket_id": 102,
+        "ticket_status": "open",
+        "stop_reason": "completed",
+        "stop_detail": null,
+        "message": "Submit the $2,400 rent payment proposal for human approval so it can be paid by the 2026-09-02 due date. No payment has been made; payment remains subject to owner approval.",
+        "decision": {
+          "ticket_id": 102,
+          "assigned_agents": [
+            "facilities",
+            "accounting"
+          ],
+          "decision": "Submit the $2,400 rent payment proposal for human approval so it can be paid by the 2026-09-02 due date. No payment has been made; payment remains subject to owner approval.",
+          "reasoning": [
+            "Lease 1 identifies Elm City Properties as the landlord for the Chapel Street shop and sets monthly rent at $2,400.",
+            "Rent is due on 2026-09-02, two days after the shop date of 2026-08-31.",
+            "Accounting confirmed no payment has been made and prepared the rent proposal for approval.",
+            "The checking balance is $3,400, but accounting also identified an overdue $840 invoice, so cash obligations should be prioritized rather than paying without approval."
+          ],
+          "facts": [
+            {
+              "statement": "Ticket 102 is an open rent notice linked to lease 1 for the Chapel Street shop.",
+              "source": "get_tickets (ticket 102)"
+            },
+            {
+              "statement": "Lease 1 lists Elm City Properties as landlord, monthly rent of $2,400, and next due date 2026-09-02.",
+              "source": "get_tickets (ticket 102)"
+            },
+            {
+              "statement": "Shop date is 2026-08-31, and the lease shows two days until rent is due.",
+              "source": "get_tickets (ticket 102)"
+            },
+            {
+              "statement": "Checking balance is $3,400 as of 2026-08-31; calculated cash after the overdue $840 invoice and next rent would be $160.",
+              "source": "delegate (accounting), based on get_documents (cash) and get_financials (cash_position)"
+            },
+            {
+              "statement": "No rent payment is recorded, and accounting prepared a $2,400 proposal requiring human approval.",
+              "source": "delegate (accounting)"
+            }
+          ],
+          "unknowns": [
+            "The rent notice itself does not state an amount; $2,400 is confirmed by lease 1.",
+            "The owner\u2019s approval decision is not yet recorded."
+          ],
+          "approvals_needed": [
+            {
+              "kind": "rent",
+              "ref_id": 1,
+              "payee": "Elm City Properties",
+              "amount": 2400.0,
+              "reference": "Lease 1 rent for Chapel Street shop due 2026-09-02",
+              "reason": "Rent notice on ticket 102; payment is due in 2 days. Prepared for human approval only.",
+              "approval_status": "needs_human_approval"
+            }
+          ],
+          "customer_message": null,
+          "next_steps": [
+            "Owner to approve or decline the $2,400 rent proposal.",
+            "If approved, pay Elm City Properties for lease 1 rent by 2026-09-02; no payment should occur before approval.",
+            "Separately review overdue invoice 501 because it competes for the remaining cash."
+          ]
+        },
+        "loop_steps": 12,
+        "seconds": 3.31,
+        "new_approval_ids": [
+          1
+        ],
+        "pending_approvals": [
+          {
+            "id": 1,
+            "run_id": "6227dd9a857d",
+            "ticket_id": 102,
+            "kind": "rent",
+            "ref_id": 1,
+            "payee": "Elm City Properties",
+            "amount": 2400.0,
+            "reference": "Lease 1 rent for Chapel Street shop due 2026-09-02",
+            "reason": "Rent notice on ticket 102; payment is due in 2 days. Prepared for human approval only.",
+            "status": "pending",
+            "decided_by": null,
+            "decided_at": null,
+            "payment_id": null,
+            "created_at": "2026-11-07T01:02:51+00:00"
+          }
+        ]
+      }
+    },
+    {
+      "step": 6,
+      "name": "nothing paid before approval",
+      "request": "GET /api/cash",
+      "status_code": 200,
+      "expected_status": 200,
+      "check": "still $3,400 and 0 payments",
+      "seconds": 0.0,
+      "result": "PASS",
+      "response": {
+        "name": "checking",
+        "balance": 3400.0,
+        "date": "2026-08-31"
+      }
+    },
+    {
+      "step": 7,
+      "name": "what each agent said and which tools",
+      "request": "GET /api/tickets/102/agents",
+      "status_code": 200,
+      "expected_status": 200,
+      "check": "boss: tools ['get_tickets'], delegated to ['facilities', 'accounting']; facilities: tools ['get_documents', 'get_tickets'], delegated to ['accounting']; accounting: tools ['get_tickets', 'get_documents', 'get_financials'], delegated to []",
+      "seconds": 0.0,
+      "result": "PASS",
+      "response": {
+        "run_id": "6227dd9a857d",
+        "ticket_id": 102,
+        "stop_reason": "completed",
+        "message": "Submit the $2,400 rent payment proposal for human approval so it can be paid by the 2026-09-02 due date. No payment has been made; payment remains subject to owner approval.",
+        "decision": {
+          "ticket_id": 102,
+          "assigned_agents": [
+            "facilities",
+            "accounting"
+          ],
+          "decision": "Submit the $2,400 rent payment proposal for human approval so it can be paid by the 2026-09-02 due date. No payment has been made; payment remains subject to owner approval.",
+          "reasoning": [
+            "Lease 1 identifies Elm City Properties as the landlord for the Chapel Street shop and sets monthly rent at $2,400.",
+            "Rent is due on 2026-09-02, two days after the shop date of 2026-08-31.",
+            "Accounting confirmed no payment has been made and prepared the rent proposal for approval.",
+            "The checking balance is $3,400, but accounting also identified an overdue $840 invoice, so cash obligations should be prioritized rather than paying without approval."
+          ],
+          "facts": [
+            {
+              "statement": "Ticket 102 is an open rent notice linked to lease 1 for the Chapel Street shop.",
+              "source": "get_tickets (ticket 102)"
+            },
+            {
+              "statement": "Lease 1 lists Elm City Properties as landlord, monthly rent of $2,400, and next due date 2026-09-02.",
+              "source": "get_tickets (ticket 102)"
+            },
+            {
+              "statement": "Shop date is 2026-08-31, and the lease shows two days until rent is due.",
+              "source": "get_tickets (ticket 102)"
+            },
+            {
+              "statement": "Checking balance is $3,400 as of 2026-08-31; calculated cash after the overdue $840 invoice and next rent would be $160.",
+              "source": "delegate (accounting), based on get_documents (cash) and get_financials (cash_position)"
+            },
+            {
+              "statement": "No rent payment is recorded, and accounting prepared a $2,400 proposal requiring human approval.",
+              "source": "delegate (accounting)"
+            }
+          ],
+          "unknowns": [
+            "The rent notice itself does not state an amount; $2,400 is confirmed by lease 1.",
+            "The owner\u2019s approval decision is not yet recorded."
+          ],
+          "approvals_needed": [
+            {
+              "kind": "rent",
+              "ref_id": 1,
+              "payee": "Elm City Properties",
+              "amount": 2400.0,
+              "reference": "Lease 1 rent for Chapel Street shop due 2026-09-02",
+              "reason": "Rent notice on ticket 102; payment is due in 2 days. Prepared for human approval only.",
+              "approval_status": "needs_human_approval"
+            }
+          ],
+          "customer_message": null,
+          "next_steps": [
+            "Owner to approve or decline the $2,400 rent proposal.",
+            "If approved, pay Elm City Properties for lease 1 rent by 2026-09-02; no payment should occur before approval.",
+            "Separately review overdue invoice 501 because it competes for the remaining cash."
+          ]
+        },
+        "loop_steps": 12,
+        "seconds": 3.31,
+        "created_at": "2026-11-07T01:02:51+00:00",
+        "agents": [
+          {
+            "agent": "boss",
+            "said": [
+              "Submit the $2,400 rent payment proposal for human approval so it can be paid by the 2026-09-02 due date. No payment has been made; payment remains subject to owner approval."
+            ],
+            "reports": [
+              {
+                "chain": "boss",
+                "loop_step": 12,
+                "output": {
+                  "ticket_id": 102,
+                  "assigned_agents": [
+                    "facilities",
+                    "accounting"
+                  ],
+                  "decision": "Submit the $2,400 rent payment proposal for human approval so it can be paid by the 2026-09-02 due date. No payment has been made; payment remains subject to owner approval.",
+                  "reasoning": [
+                    "Lease 1 identifies Elm City Properties as the landlord for the Chapel Street shop and sets monthly rent at $2,400.",
+                    "Rent is due on 2026-09-02, two days after the shop date of 2026-08-31.",
+                    "Accounting confirmed no payment has been made and prepared the rent proposal for approval.",
+                    "The checking balance is $3,400, but accounting also identified an overdue $840 invoice, so cash obligations should be prioritized rather than paying without approval."
+                  ],
+                  "facts": [
+                    {
+                      "statement": "Ticket 102 is an open rent notice linked to lease 1 for the Chapel Street shop.",
+                      "source": "get_tickets (ticket 102)"
+                    },
+                    {
+                      "statement": "Lease 1 lists Elm City Properties as landlord, monthly rent of $2,400, and next due date 2026-09-02.",
+                      "source": "get_tickets (ticket 102)"
+                    },
+                    {
+                      "statement": "Shop date is 2026-08-31, and the lease shows two days until rent is due.",
+                      "source": "get_tickets (ticket 102)"
+                    },
+                    {
+                      "statement": "Checking balance is $3,400 as of 2026-08-31; calculated cash after the overdue $840 invoice and next rent would be $160.",
+                      "source": "delegate (accounting), based on get_documents (cash) and get_financials (cash_position)"
+                    },
+                    {
+                      "statement": "No rent payment is recorded, and accounting prepared a $2,400 proposal requiring human approval.",
+                      "source": "delegate (accounting)"
+                    }
+                  ],
+                  "unknowns": [
+                    "The rent notice itself does not state an amount; $2,400 is confirmed by lease 1.",
+                    "The owner\u2019s approval decision is not yet recorded."
+                  ],
+                  "approvals_needed": [
+                    {
+                      "kind": "rent",
+                      "ref_id": 1,
+                      "payee": "Elm City Properties",
+                      "amount": 2400.0,
+                      "reference": "Lease 1 rent for Chapel Street shop due 2026-09-02",
+                      "reason": "Rent notice on ticket 102; payment is due in 2 days. Prepared for human approval only.",
+                      "approval_status": "needs_human_approval"
+                    }
+                  ],
+                  "customer_message": null,
+                  "next_steps": [
+                    "Owner to approve or decline the $2,400 rent proposal.",
+                    "If approved, pay Elm City Properties for lease 1 rent by 2026-09-02; no payment should occur before approval.",
+                    "Separately review overdue invoice 501 because it competes for the remaining cash."
+                  ]
+                }
+              }
+            ],
+            "tools_used": [
+              "get_tickets"
+            ],
+            "tool_calls": [
+              {
+                "agent": "boss",
+                "chain": "boss",
+                "loop_step": 1,
+                "tool": "get_tickets",
+                "args": {
+                  "ticket_id": 102
+                },
+                "result": "{\"shop_date\": \"2026-08-31\", \"count\": 1, \"tickets\": [{\"id\": 102, \"type\": \"rent_notice\", \"requester\": \"Elm City Properties\", \"subject\": \"Rent due\", \"sku\": null, \"size\": null, \"qty\": null, \"lease_id\": 1, \"invoice_id\": null, \"status\": \"open\", \"notes\": \"Email: shop rent due in 2 days.\", \"created_at\": \"2026-08-31T11:05:00-04:00\", \"lease\": {\"id\": 1, \"space_name\": \"Chapel Street shop\", \"landlord\": \"Elm C\u2026"
+              },
+              {
+                "agent": "boss",
+                "chain": "boss",
+                "loop_step": 2,
+                "tool": "delegate",
+                "args": {
+                  "agent": "facilities",
+                  "task": "Ticket 102: Review the linked lease and rent notice for Chapel Street shop. Confirm lease/rent facts, due date, and any facilities-relevant action. Report facts and unknowns; do not make payments."
+                },
+                "result": "{\"agent\": \"facilities\", \"summary\": \"Ticket 102's rent notice matches the lease on landlord and timing: Elm City Properties requests rent for the Chapel Street shop, due in 2 days on 2026-09-02. The lease rent is $2,400; no payment is recorded, and accounting prepared a $2,400 rent proposal requiring human approval. Facilities made no payment.\", \"facts\": [{\"statement\": \"Lease 1 covers the Chapel S\u2026"
+              },
+              {
+                "agent": "boss",
+                "chain": "boss",
+                "loop_step": 2,
+                "tool": "delegate",
+                "args": {
+                  "agent": "accounting",
+                  "task": "Ticket 102: Review the linked lease/rent notice. Prepare the exact rent payment proposal if appropriate, including kind, ref_id, payee, amount, reference, and reason. Do not pay anything."
+                },
+                "result": "{\"agent\": \"accounting\", \"summary\": \"Rent notice reviewed for ticket 102. Prepare a $2,400 rent payment proposal to Elm City Properties for lease 1; it is due 2026-09-02, and no payment has been made. Checking cash covers rent alone, leaving $1,000; after also reserving the overdue $840 invoice 501, calculated cash after obligations would be $160.\", \"facts\": [{\"statement\": \"Ticket 102 is an open r\u2026"
+              }
+            ],
+            "delegated_to": [
+              "facilities",
+              "accounting"
+            ]
+          },
+          {
+            "agent": "facilities",
+            "said": [
+              "Ticket 102's rent notice matches the lease on landlord and timing: Elm City Properties requests rent for the Chapel Street shop, due in 2 days on 2026-09-02. The lease rent is $2,400; no payment is recorded, and accounting prepared a $2,400 rent proposal requiring human approval. Facilities made no payment."
+            ],
+            "reports": [
+              {
+                "chain": "boss > facilities",
+                "loop_step": 11,
+                "output": {
+                  "agent": "facilities",
+                  "summary": "Ticket 102's rent notice matches the lease on landlord and timing: Elm City Properties requests rent for the Chapel Street shop, due in 2 days on 2026-09-02. The lease rent is $2,400; no payment is recorded, and accounting prepared a $2,400 rent proposal requiring human approval. Facilities made no payment.",
+                  "facts": [
+                    {
+                      "statement": "Lease 1 covers the Chapel Street shop; landlord is Elm City Properties and monthly rent is $2,400.",
+                      "source": "get_documents (leases)"
+                    },
+                    {
+                      "statement": "Rent is due 2026-09-02, two days after the shop date of 2026-08-31.",
+                      "source": "get_documents (leases)"
+                    },
+                    {
+                      "statement": "Ticket 102 is an open rent notice from Elm City Properties stating that shop rent is due in 2 days and is linked to lease 1.",
+                      "source": "get_tickets (ticket 102)"
+                    },
+                    {
+                      "statement": "No payments are recorded in the database.",
+                      "source": "get_documents (payments)"
+                    },
+                    {
+                      "statement": "Accounting prepared a $2,400 rent payment proposal for lease 1, requiring human approval; no payment was made.",
+                      "source": "delegate (accounting)"
+                    },
+                    {
+                      "statement": "No resolved rent-notice tickets are recorded.",
+                      "source": "get_tickets (ticket 102)"
+                    }
+                  ],
+                  "unknowns": [
+                    "The rent notice text does not state an amount, so the $2,400 amount is confirmed from the lease rather than from the notice itself.",
+                    "The lease has no additional facilities notes."
+                  ],
+                  "recommendations": [
+                    "Obtain human approval for accounting's rent proposal before the 2026-09-02 due date."
+                  ],
+                  "payment_proposals": [
+                    {
+                      "kind": "rent",
+                      "ref_id": 1,
+                      "payee": "Elm City Properties",
+                      "amount": 2400.0,
+                      "reference": "Lease 1 rent for Chapel Street shop due 2026-09-02",
+                      "reason": "Monthly rent due in 2 days; prepared for human approval only.",
+                      "approval_status": "needs_human_approval"
+                    }
+                  ],
+                  "customer_message": null
+                }
+              }
+            ],
+            "tools_used": [
+              "get_documents",
+              "get_tickets"
+            ],
+            "tool_calls": [
+              {
+                "agent": "facilities",
+                "chain": "boss > facilities",
+                "loop_step": 4,
+                "tool": "get_documents",
+                "args": {
+                  "doc_type": "leases"
+                },
+                "result": "{\"shop_date\": \"2026-08-31\", \"leases\": [{\"id\": 1, \"space_name\": \"Chapel Street shop\", \"landlord\": \"Elm City Properties\", \"monthly_rent\": 2400.0, \"next_due\": \"2026-09-02\", \"notes\": null, \"days_until_due (calculated)\": 2}]}"
+              },
+              {
+                "agent": "facilities",
+                "chain": "boss > facilities",
+                "loop_step": 4,
+                "tool": "get_tickets",
+                "args": {
+                  "ticket_id": 102
+                },
+                "result": "{\"shop_date\": \"2026-08-31\", \"count\": 1, \"tickets\": [{\"id\": 102, \"type\": \"rent_notice\", \"requester\": \"Elm City Properties\", \"subject\": \"Rent due\", \"sku\": null, \"size\": null, \"qty\": null, \"lease_id\": 1, \"invoice_id\": null, \"status\": \"open\", \"notes\": \"Email: shop rent due in 2 days.\", \"created_at\": \"2026-08-31T11:05:00-04:00\", \"lease\": {\"id\": 1, \"space_name\": \"Chapel Street shop\", \"landlord\": \"Elm C\u2026"
+              },
+              {
+                "agent": "facilities",
+                "chain": "boss > facilities",
+                "loop_step": 5,
+                "tool": "get_documents",
+                "args": {
+                  "doc_type": "payments"
+                },
+                "result": "{\"shop_date\": \"2026-08-31\", \"payments\": [], \"payments_note\": \"No payments are recorded in the database.\"}"
+              },
+              {
+                "agent": "facilities",
+                "chain": "boss > facilities",
+                "loop_step": 7,
+                "tool": "delegate",
+                "args": {
+                  "agent": "accounting",
+                  "task": "Ticket 102: Prepare a payment proposal for Chapel Street shop rent. Lease facts: lease 1, landlord Elm City Properties, monthly rent $2,400, due 2026-09-02 (shop date 2026-08-31, 2 days until due). Rent notice requester is Elm City Properties and says rent due in 2 days. No payments are recorded. Do not pay; return proposal needing human approval."
+                },
+                "result": "{\"agent\": \"accounting\", \"summary\": \"Prepared a rent payment proposal for Chapel Street shop lease 1. The $2,400 rent is due 2026-09-02, two days after the shop date, and the proposal requires human approval; no payment was made.\", \"facts\": [{\"statement\": \"Lease 1 is for Chapel Street shop with landlord Elm City Properties and monthly rent of $2,400.\", \"source\": \"get_documents (leases)\"}, {\"statem\u2026"
+              }
+            ],
+            "delegated_to": [
+              "accounting"
+            ]
+          },
+          {
+            "agent": "accounting",
+            "said": [
+              "Rent notice reviewed for ticket 102. Prepare a $2,400 rent payment proposal to Elm City Properties for lease 1; it is due 2026-09-02, and no payment has been made. Checking cash covers rent alone, leaving $1,000; after also reserving the overdue $840 invoice 501, calculated cash after obligations would be $160.",
+              "Prepared a rent payment proposal for Chapel Street shop lease 1. The $2,400 rent is due 2026-09-02, two days after the shop date, and the proposal requires human approval; no payment was made."
+            ],
+            "reports": [
+              {
+                "chain": "boss > accounting",
+                "loop_step": 9,
+                "output": {
+                  "agent": "accounting",
+                  "summary": "Rent notice reviewed for ticket 102. Prepare a $2,400 rent payment proposal to Elm City Properties for lease 1; it is due 2026-09-02, and no payment has been made. Checking cash covers rent alone, leaving $1,000; after also reserving the overdue $840 invoice 501, calculated cash after obligations would be $160.",
+                  "facts": [
+                    {
+                      "statement": "Ticket 102 is an open rent notice linked to lease 1 for the Chapel Street shop.",
+                      "source": "get_tickets (ticket 102)"
+                    },
+                    {
+                      "statement": "Lease 1 landlord/payee is Elm City Properties, monthly rent is $2,400, and the next due date is 2026-09-02, two days from the shop date 2026-08-31.",
+                      "source": "get_tickets (ticket 102); get_documents (leases)"
+                    },
+                    {
+                      "statement": "Checking balance is $3,400 as of 2026-08-31.",
+                      "source": "get_documents (cash)"
+                    },
+                    {
+                      "statement": "Invoice 501 for $840 is overdue by 3 days, and calculated cash after the open invoice and next rent is $160.",
+                      "source": "get_financials (cash_position)"
+                    }
+                  ],
+                  "unknowns": [
+                    "No prior resolved rent-notice tickets are in the database."
+                  ],
+                  "recommendations": [
+                    "Prioritize the rent proposal because it is due in two days; separately address overdue invoice 501 based on human approval and cash prioritization."
+                  ],
+                  "payment_proposals": [
+                    {
+                      "kind": "rent",
+                      "ref_id": 1,
+                      "payee": "Elm City Properties",
+                      "amount": 2400.0,
+                      "reference": "Lease 1 rent for Chapel Street shop due 2026-09-02",
+                      "reason": "Rent notice on ticket 102; payment is due in 2 days. Prepared for human approval only.",
+                      "approval_status": "needs_human_approval"
+                    }
+                  ],
+                  "customer_message": null
+                }
+              },
+              {
+                "chain": "boss > facilities > accounting",
+                "loop_step": 10,
+                "output": {
+                  "agent": "accounting",
+                  "summary": "Prepared a rent payment proposal for Chapel Street shop lease 1. The $2,400 rent is due 2026-09-02, two days after the shop date, and the proposal requires human approval; no payment was made.",
+                  "facts": [
+                    {
+                      "statement": "Lease 1 is for Chapel Street shop with landlord Elm City Properties and monthly rent of $2,400.",
+                      "source": "get_documents (leases)"
+                    },
+                    {
+                      "statement": "Rent is due 2026-09-02, with 2 days until due as of shop date 2026-08-31.",
+                      "source": "get_documents (leases)"
+                    },
+                    {
+                      "statement": "Checking balance is $3,400 as of 2026-08-31.",
+                      "source": "get_documents (cash)"
+                    },
+                    {
+                      "statement": "An open invoice of $840 to Bulldog Print Co is 3 days overdue; cash after the open invoice and next rent is calculated as $160.",
+                      "source": "get_financials (cash_position)"
+                    },
+                    {
+                      "statement": "No payments are recorded.",
+                      "source": "get_documents (payments)"
+                    }
+                  ],
+                  "unknowns": [],
+                  "recommendations": [
+                    "Human approval is required before paying the proposed rent. If the overdue $840 invoice is also paid, $160 would remain after both obligations."
+                  ],
+                  "payment_proposals": [
+                    {
+                      "kind": "rent",
+                      "ref_id": 1,
+                      "payee": "Elm City Properties",
+                      "amount": 2400.0,
+                      "reference": "Lease 1 rent for Chapel Street shop due 2026-09-02",
+                      "reason": "Monthly rent due in 2 days; prepared for human approval only.",
+                      "approval_status": "needs_human_approval"
+                    }
+                  ],
+                  "customer_message": null
+                }
+              }
+            ],
+            "tools_used": [
+              "get_tickets",
+              "get_documents",
+              "get_financials"
+            ],
+            "tool_calls": [
+              {
+                "agent": "accounting",
+                "chain": "boss > accounting",
+                "loop_step": 6,
+                "tool": "get_tickets",
+                "args": {
+                  "ticket_id": 102
+                },
+                "result": "{\"shop_date\": \"2026-08-31\", \"count\": 1, \"tickets\": [{\"id\": 102, \"type\": \"rent_notice\", \"requester\": \"Elm City Properties\", \"subject\": \"Rent due\", \"sku\": null, \"size\": null, \"qty\": null, \"lease_id\": 1, \"invoice_id\": null, \"status\": \"open\", \"notes\": \"Email: shop rent due in 2 days.\", \"created_at\": \"2026-08-31T11:05:00-04:00\", \"lease\": {\"id\": 1, \"space_name\": \"Chapel Street shop\", \"landlord\": \"Elm C\u2026"
+              },
+              {
+                "agent": "accounting",
+                "chain": "boss > accounting",
+                "loop_step": 6,
+                "tool": "get_documents",
+                "args": {
+                  "doc_type": "leases"
+                },
+                "result": "{\"shop_date\": \"2026-08-31\", \"leases\": [{\"id\": 1, \"space_name\": \"Chapel Street shop\", \"landlord\": \"Elm City Properties\", \"monthly_rent\": 2400.0, \"next_due\": \"2026-09-02\", \"notes\": null, \"days_until_due (calculated)\": 2}]}"
+              },
+              {
+                "agent": "accounting",
+                "chain": "boss > accounting",
+                "loop_step": 6,
+                "tool": "get_documents",
+                "args": {
+                  "doc_type": "cash"
+                },
+                "result": "{\"shop_date\": \"2026-08-31\", \"cash_accounts\": [{\"name\": \"checking\", \"balance\": 3400.0, \"date\": \"2026-08-31\"}]}"
+              },
+              {
+                "agent": "accounting",
+                "chain": "boss > accounting",
+                "loop_step": 6,
+                "tool": "get_financials",
+                "args": {},
+                "result": "{\"shop_date\": \"2026-08-31\", \"formulas\": {\"gross_margin_per_unit\": \"list_price - unit_cost\", \"gross_margin_pct\": \"(price - unit_cost) / price x 100\", \"markup_pct\": \"(price - unit_cost) / unit_cost x 100\", \"discounted_price\": \"list_price x (1 - discount_pct / 100)\", \"revenue\": \"qty x price charged\", \"cost_of_goods_sold\": \"qty x unit_cost\", \"gross_profit\": \"revenue - cost_of_goods_sold\", \"max_discou\u2026"
+              },
+              {
+                "agent": "accounting",
+                "chain": "boss > facilities > accounting",
+                "loop_step": 8,
+                "tool": "get_documents",
+                "args": {
+                  "doc_type": "leases",
+                  "doc_id": 1
+                },
+                "result": "{\"shop_date\": \"2026-08-31\", \"leases\": [{\"id\": 1, \"space_name\": \"Chapel Street shop\", \"landlord\": \"Elm City Properties\", \"monthly_rent\": 2400.0, \"next_due\": \"2026-09-02\", \"notes\": null, \"days_until_due (calculated)\": 2}]}"
+              },
+              {
+                "agent": "accounting",
+                "chain": "boss > facilities > accounting",
+                "loop_step": 8,
+                "tool": "get_documents",
+                "args": {
+                  "doc_type": "cash"
+                },
+                "result": "{\"shop_date\": \"2026-08-31\", \"cash_accounts\": [{\"name\": \"checking\", \"balance\": 3400.0, \"date\": \"2026-08-31\"}]}"
+              },
+              {
+                "agent": "accounting",
+                "chain": "boss > facilities > accounting",
+                "loop_step": 8,
+                "tool": "get_financials",
+                "args": {},
+                "result": "{\"shop_date\": \"2026-08-31\", \"formulas\": {\"gross_margin_per_unit\": \"list_price - unit_cost\", \"gross_margin_pct\": \"(price - unit_cost) / price x 100\", \"markup_pct\": \"(price - unit_cost) / unit_cost x 100\", \"discounted_price\": \"list_price x (1 - discount_pct / 100)\", \"revenue\": \"qty x price charged\", \"cost_of_goods_sold\": \"qty x unit_cost\", \"gross_profit\": \"revenue - cost_of_goods_sold\", \"max_discou\u2026"
+              },
+              {
+                "agent": "accounting",
+                "chain": "boss > facilities > accounting",
+                "loop_step": 9,
+                "tool": "get_documents",
+                "args": {
+                  "doc_type": "payments"
+                },
+                "result": "{\"shop_date\": \"2026-08-31\", \"payments\": [], \"payments_note\": \"No payments are recorded in the database.\"}"
+              }
+            ],
+            "delegated_to": []
+          }
+        ]
+      }
+    },
+    {
+      "step": 8,
+      "name": "pending approvals",
+      "request": "GET /api/approvals",
+      "status_code": 200,
+      "expected_status": 200,
+      "check": "[(1, 'rent', 'Elm City Properties', 2400.0)]",
+      "seconds": 0.0,
+      "result": "PASS",
+      "response": [
+        {
+          "id": 1,
+          "run_id": "6227dd9a857d",
+          "ticket_id": 102,
+          "kind": "rent",
+          "ref_id": 1,
+          "payee": "Elm City Properties",
+          "amount": 2400.0,
+          "reference": "Lease 1 rent for Chapel Street shop due 2026-09-02",
+          "reason": "Rent notice on ticket 102; payment is due in 2 days. Prepared for human approval only.",
+          "status": "pending",
+          "decided_by": null,
+          "decided_at": null,
+          "payment_id": null,
+          "created_at": "2026-11-07T01:02:51+00:00"
+        }
+      ]
+    },
+    {
+      "step": 9,
+      "name": "owner approves rent",
+      "request": "POST /api/approvals/1/approve",
+      "status_code": 200,
+      "expected_status": 200,
+      "check": "Rent for 2026-09-02 paid; lease 1 next due 2026-10-02. Balance now $1,000.00",
+      "seconds": 0.0,
+      "result": "PASS",
+      "response": {
+        "approved": true,
+        "approval_id": 1,
+        "payment_id": 1,
+        "kind": "rent",
+        "payee": "Elm City Properties",
+        "amount": 2400.0,
+        "effect": "Rent for 2026-09-02 paid; lease 1 next due 2026-10-02.",
+        "checking_balance": 1000.0
+      }
+    },
+    {
+      "step": 10,
+      "name": "approving twice is refused",
+      "request": "POST /api/approvals/1/approve",
+      "status_code": 409,
+      "expected_status": 409,
+      "check": "Approval 1 is already approved.",
+      "seconds": 0.0,
+      "result": "PASS",
+      "response": {
+        "detail": "Approval 1 is already approved."
+      }
+    },
+    {
+      "step": 11,
+      "name": "ticket 102 now resolved",
+      "request": "GET /api/tickets",
+      "status_code": 200,
+      "expected_status": 200,
+      "check": "[(101, 'open', 0), (102, 'resolved', 0), (103, 'open', 0)]",
+      "seconds": 0.0,
+      "result": "PASS",
+      "response": [
+        {
+          "id": 101,
+          "type": "customer_order",
+          "requester": "Tauhid Zaman",
+          "subject": "Bulldog tee",
+          "sku": "CC-TEE-WHITE",
+          "size": "S",
+          "qty": 1,
+          "lease_id": null,
+          "invoice_id": 501,
+          "status": "open",
+          "notes": "Needs a tee in size S.",
+          "created_at": "2026-08-31T09:15:00-04:00",
+          "last_run": null,
+          "pending_approvals": 0
+        },
+        {
+          "id": 102,
+          "type": "rent_notice",
+          "requester": "Elm City Properties",
+          "subject": "Rent due",
+          "sku": null,
+          "size": null,
+          "qty": null,
+          "lease_id": 1,
+          "invoice_id": null,
+          "status": "resolved",
+          "notes": "Email: shop rent due in 2 days.",
+          "created_at": "2026-08-31T11:05:00-04:00",
+          "last_run": {
+            "run_id": "6227dd9a857d",
+            "stop_reason": "completed",
+            "message": "Submit the $2,400 rent payment proposal for human approval so it can be paid by the 2026-09-02 due date. No payment has been made; payment remains subject to owner approval.",
+            "created_at": "2026-11-07T01:02:51+00:00"
+          },
+          "pending_approvals": 0
+        },
+        {
+          "id": 103,
+          "type": "price_override",
+          "requester": "Yale AI Club",
+          "subject": "Bulk hoodie discount",
+          "sku": "CC-HOOD-NAVY",
+          "size": "M",
+          "qty": 20,
+          "lease_id": null,
+          "invoice_id": null,
+          "status": "open",
+          "notes": "Student org wants 20 hoodies, size M, asking for a bulk discount.",
+          "created_at": "2026-08-31T16:55:00-04:00",
+          "last_run": null,
+          "pending_approvals": 0
+        }
+      ]
+    },
+    {
+      "step": 12,
+      "name": "run the agent team on ticket 101",
+      "request": "POST /api/tickets/101/run",
+      "status_code": 200,
+      "expected_status": 200,
+      "check": "completed, 14 steps, approvals [(2, 'invoice', 840.0)]",
+      "seconds": 32.95,
+      "result": "PASS",
+      "response": {
+        "run_id": "0d72705669ed",
+        "ticket_id": 101,
+        "ticket_status": "open",
+        "stop_reason": "completed",
+        "stop_detail": null,
+        "message": "Hi Tauhid,\n\nThanks for choosing the Bulldog tee. Your size S is not currently in stock, so your order is not ready to ship and has not been sent. If the reprint is ordered today, the expected arrival is September 5, but that date is only an estimate and is not guaranteed. We\u2019ll update you when there\u2019s progress.\n\nThanks for your patience\u2014we appreciate your choice! :)",
+        "decision": {
+          "ticket_id": 101,
+          "assigned_agents": [
+            "inventory",
+            "accounting",
+            "customer_service"
+          ],
+          "decision": "Keep ticket 101 backordered and do not promise shipment. The owner should review and approve invoice 501; once the reprint is actually received and recorded, fulfill the size S order and update the customer.",
+          "reasoning": [
+            "CC-TEE-WHITE size S has 0 units on hand, creating a shortfall of 1, so the order cannot ship now (check_inventory).",
+            "Invoice 501 for the rush reprint is open and 3 days overdue; paying it is subject to human approval and does not itself confirm receipt or shipment (get_tickets; accounting review).",
+            "The estimated arrival is 2026-09-05 if ordered on 2026-08-31, but no confirmed completion or shipment is recorded (inventory and customer_service reports).",
+            "Customer service checked the order status and sent one simulated backorder email; no sale is recorded and no shipment is recorded. (check_order_status; send_customer_email)"
+          ],
+          "facts": [
+            {
+              "statement": "Ticket 101 requests 1 unit of CC-TEE-WHITE in size S.",
+              "source": "get_tickets (ticket 101)"
+            },
+            {
+              "statement": "CC-TEE-WHITE size S has 0 units on hand and a calculated shortfall of 1.",
+              "source": "check_inventory (inventory)"
+            },
+            {
+              "statement": "Invoice 501 is open for $840.00, owed to Bulldog Print Co, due 2026-08-28.",
+              "source": "get_tickets (linked invoice 501)"
+            },
+            {
+              "statement": "Checking cash is $1,000.00 as of 2026-08-31; paying invoice 501 would leave calculated cash of $160.00 before the next rent obligation.",
+              "source": "get_financials (cash_position), accounting report"
+            },
+            {
+              "statement": "No sale or shipment is recorded for the order.",
+              "source": "check_order_status (sales/inventory_changes; customer_emails/shipment status)"
+            },
+            {
+              "statement": "One simulated backorder email was sent to the customer.",
+              "source": "send_customer_email (customer_emails)"
+            }
+          ],
+          "unknowns": [
+            "Whether invoice 501 represents a reprint already in transit or has otherwise been fulfilled.",
+            "A confirmed completion or shipment date.",
+            "Customer contact details are not available in the database."
+          ],
+          "approvals_needed": [
+            {
+              "kind": "invoice",
+              "ref_id": 501,
+              "payee": "Bulldog Print Co",
+              "amount": 840.0,
+              "reference": "Invoice 501 \u2014 Rush reprint CC-TEE-WHITE S, due 2026-08-28",
+              "reason": "Open invoice is 3 days overdue; checking cash covers the invoice, leaving $160.00 before the next rent obligation.",
+              "approval_status": "needs_human_approval"
+            }
+          ],
+          "customer_message": "Hi Tauhid,\n\nThanks for choosing the Bulldog tee. Your size S is not currently in stock, so your order is not ready to ship and has not been sent. If the reprint is ordered today, the expected arrival is September 5, but that date is only an estimate and is not guaranteed. We\u2019ll update you when there\u2019s progress.\n\nThanks for your patience\u2014we appreciate your choice! :)",
+          "next_steps": [
+            "Owner reviews and, if appropriate, approves payment of invoice 501; no payment has been made.",
+            "Confirm whether invoice 501's reprint is in transit before placing any duplicate restock order.",
+            "If the reprint arrives and is recorded, update inventory for the actual receipt, then fulfill the 1-unit size S order and record the sale.",
+            "Customer service has already emailed the customer once; send no duplicate message unless the order status changes."
+          ]
+        },
+        "loop_steps": 14,
+        "seconds": 32.94,
+        "new_approval_ids": [
+          2
+        ],
+        "pending_approvals": [
+          {
+            "id": 2,
+            "run_id": "0d72705669ed",
+            "ticket_id": 101,
+            "kind": "invoice",
+            "ref_id": 501,
+            "payee": "Bulldog Print Co",
+            "amount": 840.0,
+            "reference": "Invoice 501 \u2014 Rush reprint CC-TEE-WHITE S, due 2026-08-28",
+            "reason": "Open invoice is 3 days overdue; checking cash covers the invoice, leaving $160.00 before the next rent obligation.",
+            "status": "pending",
+            "decided_by": null,
+            "decided_at": null,
+            "payment_id": null,
+            "created_at": "2026-11-07T01:03:24+00:00"
+          }
+        ]
+      }
+    },
+    {
+      "step": 13,
+      "name": "owner rejects a payment (nothing paid)",
+      "request": "POST /api/approvals/2/reject",
+      "status_code": 200,
+      "expected_status": 200,
+      "check": "invoice 501 still open, still 1 payment",
+      "seconds": 0.0,
+      "result": "PASS",
+      "response": {
+        "rejected": true,
+        "approval_id": 2,
+        "payee": "Bulldog Print Co",
+        "amount": 840.0
+      }
+    },
+    {
+      "step": 14,
+      "name": "agents for ticket 101",
+      "request": "GET /api/tickets/101/agents",
+      "status_code": 200,
+      "expected_status": 200,
+      "check": "boss: ['get_tickets']; inventory: ['check_inventory', 'find_vendors']; accounting: ['get_tickets', 'get_documents', 'get_financials']; customer_service: ['check_order_status', 'get_tickets', 'check_inventory', 'send_customer_email']",
+      "seconds": 0.0,
+      "result": "PASS",
+      "response": {
+        "run_id": "0d72705669ed",
+        "ticket_id": 101,
+        "stop_reason": "completed",
+        "message": "Hi Tauhid,\n\nThanks for choosing the Bulldog tee. Your size S is not currently in stock, so your order is not ready to ship and has not been sent. If the reprint is ordered today, the expected arrival is September 5, but that date is only an estimate and is not guaranteed. We\u2019ll update you when there\u2019s progress.\n\nThanks for your patience\u2014we appreciate your choice! :)",
+        "decision": {
+          "ticket_id": 101,
+          "assigned_agents": [
+            "inventory",
+            "accounting",
+            "customer_service"
+          ],
+          "decision": "Keep ticket 101 backordered and do not promise shipment. The owner should review and approve invoice 501; once the reprint is actually received and recorded, fulfill the size S order and update the customer.",
+          "reasoning": [
+            "CC-TEE-WHITE size S has 0 units on hand, creating a shortfall of 1, so the order cannot ship now (check_inventory).",
+            "Invoice 501 for the rush reprint is open and 3 days overdue; paying it is subject to human approval and does not itself confirm receipt or shipment (get_tickets; accounting review).",
+            "The estimated arrival is 2026-09-05 if ordered on 2026-08-31, but no confirmed completion or shipment is recorded (inventory and customer_service reports).",
+            "Customer service checked the order status and sent one simulated backorder email; no sale is recorded and no shipment is recorded. (check_order_status; send_customer_email)"
+          ],
+          "facts": [
+            {
+              "statement": "Ticket 101 requests 1 unit of CC-TEE-WHITE in size S.",
+              "source": "get_tickets (ticket 101)"
+            },
+            {
+              "statement": "CC-TEE-WHITE size S has 0 units on hand and a calculated shortfall of 1.",
+              "source": "check_inventory (inventory)"
+            },
+            {
+              "statement": "Invoice 501 is open for $840.00, owed to Bulldog Print Co, due 2026-08-28.",
+              "source": "get_tickets (linked invoice 501)"
+            },
+            {
+              "statement": "Checking cash is $1,000.00 as of 2026-08-31; paying invoice 501 would leave calculated cash of $160.00 before the next rent obligation.",
+              "source": "get_financials (cash_position), accounting report"
+            },
+            {
+              "statement": "No sale or shipment is recorded for the order.",
+              "source": "check_order_status (sales/inventory_changes; customer_emails/shipment status)"
+            },
+            {
+              "statement": "One simulated backorder email was sent to the customer.",
+              "source": "send_customer_email (customer_emails)"
+            }
+          ],
+          "unknowns": [
+            "Whether invoice 501 represents a reprint already in transit or has otherwise been fulfilled.",
+            "A confirmed completion or shipment date.",
+            "Customer contact details are not available in the database."
+          ],
+          "approvals_needed": [
+            {
+              "kind": "invoice",
+              "ref_id": 501,
+              "payee": "Bulldog Print Co",
+              "amount": 840.0,
+              "reference": "Invoice 501 \u2014 Rush reprint CC-TEE-WHITE S, due 2026-08-28",
+              "reason": "Open invoice is 3 days overdue; checking cash covers the invoice, leaving $160.00 before the next rent obligation.",
+              "approval_status": "needs_human_approval"
+            }
+          ],
+          "customer_message": "Hi Tauhid,\n\nThanks for choosing the Bulldog tee. Your size S is not currently in stock, so your order is not ready to ship and has not been sent. If the reprint is ordered today, the expected arrival is September 5, but that date is only an estimate and is not guaranteed. We\u2019ll update you when there\u2019s progress.\n\nThanks for your patience\u2014we appreciate your choice! :)",
+          "next_steps": [
+            "Owner reviews and, if appropriate, approves payment of invoice 501; no payment has been made.",
+            "Confirm whether invoice 501's reprint is in transit before placing any duplicate restock order.",
+            "If the reprint arrives and is recorded, update inventory for the actual receipt, then fulfill the 1-unit size S order and record the sale.",
+            "Customer service has already emailed the customer once; send no duplicate message unless the order status changes."
+          ]
+        },
+        "loop_steps": 14,
+        "seconds": 32.94,
+        "created_at": "2026-11-07T01:03:24+00:00",
+        "agents": [
+          {
+            "agent": "boss",
+            "said": [
+              "Keep ticket 101 backordered and do not promise shipment. The owner should review and approve invoice 501; once the reprint is actually received and recorded, fulfill the size S order and update the customer."
+            ],
+            "reports": [
+              {
+                "chain": "boss",
+                "loop_step": 14,
+                "output": {
+                  "ticket_id": 101,
+                  "assigned_agents": [
+                    "inventory",
+                    "accounting",
+                    "customer_service"
+                  ],
+                  "decision": "Keep ticket 101 backordered and do not promise shipment. The owner should review and approve invoice 501; once the reprint is actually received and recorded, fulfill the size S order and update the customer.",
+                  "reasoning": [
+                    "CC-TEE-WHITE size S has 0 units on hand, creating a shortfall of 1, so the order cannot ship now (check_inventory).",
+                    "Invoice 501 for the rush reprint is open and 3 days overdue; paying it is subject to human approval and does not itself confirm receipt or shipment (get_tickets; accounting review).",
+                    "The estimated arrival is 2026-09-05 if ordered on 2026-08-31, but no confirmed completion or shipment is recorded (inventory and customer_service reports).",
+                    "Customer service checked the order status and sent one simulated backorder email; no sale is recorded and no shipment is recorded. (check_order_status; send_customer_email)"
+                  ],
+                  "facts": [
+                    {
+                      "statement": "Ticket 101 requests 1 unit of CC-TEE-WHITE in size S.",
+                      "source": "get_tickets (ticket 101)"
+                    },
+                    {
+                      "statement": "CC-TEE-WHITE size S has 0 units on hand and a calculated shortfall of 1.",
+                      "source": "check_inventory (inventory)"
+                    },
+                    {
+                      "statement": "Invoice 501 is open for $840.00, owed to Bulldog Print Co, due 2026-08-28.",
+                      "source": "get_tickets (linked invoice 501)"
+                    },
+                    {
+                      "statement": "Checking cash is $1,000.00 as of 2026-08-31; paying invoice 501 would leave calculated cash of $160.00 before the next rent obligation.",
+                      "source": "get_financials (cash_position), accounting report"
+                    },
+                    {
+                      "statement": "No sale or shipment is recorded for the order.",
+                      "source": "check_order_status (sales/inventory_changes; customer_emails/shipment status)"
+                    },
+                    {
+                      "statement": "One simulated backorder email was sent to the customer.",
+                      "source": "send_customer_email (customer_emails)"
+                    }
+                  ],
+                  "unknowns": [
+                    "Whether invoice 501 represents a reprint already in transit or has otherwise been fulfilled.",
+                    "A confirmed completion or shipment date.",
+                    "Customer contact details are not available in the database."
+                  ],
+                  "approvals_needed": [
+                    {
+                      "kind": "invoice",
+                      "ref_id": 501,
+                      "payee": "Bulldog Print Co",
+                      "amount": 840.0,
+                      "reference": "Invoice 501 \u2014 Rush reprint CC-TEE-WHITE S, due 2026-08-28",
+                      "reason": "Open invoice is 3 days overdue; checking cash covers the invoice, leaving $160.00 before the next rent obligation.",
+                      "approval_status": "needs_human_approval"
+                    }
+                  ],
+                  "customer_message": "Hi Tauhid,\n\nThanks for choosing the Bulldog tee. Your size S is not currently in stock, so your order is not ready to ship and has not been sent. If the reprint is ordered today, the expected arrival is September 5, but that date is only an estimate and is not guaranteed. We\u2019ll update you when there\u2019s progress.\n\nThanks for your patience\u2014we appreciate your choice! :)",
+                  "next_steps": [
+                    "Owner reviews and, if appropriate, approves payment of invoice 501; no payment has been made.",
+                    "Confirm whether invoice 501's reprint is in transit before placing any duplicate restock order.",
+                    "If the reprint arrives and is recorded, update inventory for the actual receipt, then fulfill the 1-unit size S order and record the sale.",
+                    "Customer service has already emailed the customer once; send no duplicate message unless the order status changes."
+                  ]
+                }
+              }
+            ],
+            "tools_used": [
+              "get_tickets"
+            ],
+            "tool_calls": [
+              {
+                "agent": "boss",
+                "chain": "boss",
+                "loop_step": 1,
+                "tool": "get_tickets",
+                "args": {
+                  "ticket_id": 101
+                },
+                "result": "{\"shop_date\": \"2026-08-31\", \"count\": 1, \"tickets\": [{\"id\": 101, \"type\": \"customer_order\", \"requester\": \"Tauhid Zaman\", \"subject\": \"Bulldog tee\", \"sku\": \"CC-TEE-WHITE\", \"size\": \"S\", \"qty\": 1, \"lease_id\": null, \"invoice_id\": 501, \"status\": \"open\", \"notes\": \"Needs a tee in size S.\", \"created_at\": \"2026-08-31T09:15:00-04:00\", \"invoice\": {\"id\": 501, \"vendor_id\": 1, \"amount\": 840.0, \"due_date\": \"2026-0\u2026"
+              },
+              {
+                "agent": "boss",
+                "chain": "boss",
+                "loop_step": 2,
+                "tool": "delegate",
+                "args": {
+                  "agent": "inventory",
+                  "task": "Ticket 101: Check current stock for SKU CC-TEE-WHITE, size S, quantity 1. Determine whether the order can be fulfilled now; if not, identify restock option and timing from available records. Do not update inventory unless an actual sale or restock is confirmed."
+                },
+                "result": "{\"agent\": \"inventory\", \"summary\": \"Ticket 101 cannot be fulfilled now: CC-TEE-WHITE size S has 0 units on hand, leaving a shortfall of 1. The database recommends Bulldog Print Co for 1 unit, with an estimated arrival of 2026-09-05 if ordered on 2026-08-31; however, open invoice 501 already names this SKU and size, so a duplicate restock should not be suggested without confirming that invoice's st\u2026"
+              },
+              {
+                "agent": "boss",
+                "chain": "boss",
+                "loop_step": 2,
+                "tool": "delegate",
+                "args": {
+                  "agent": "accounting",
+                  "task": "Ticket 101: Review linked invoice 501 for the rush reprint CC-TEE-WHITE size S. Report payment status and prepare any needed payment proposal, including exact kind, ref_id, payee, amount, and reference. Do not pay."
+                },
+                "result": "{\"agent\": \"accounting\", \"summary\": \"Invoice 501 is open and 3 days overdue as of shop date 2026-08-31. I prepared, but did not make, a payment proposal for the full $840.00 rush reprint invoice; checking cash is $1,000.00, leaving $160.00 after this invoice, before the next rent obligation.\", \"facts\": [{\"statement\": \"Shop date is 2026-08-31.\", \"source\": \"get_documents (desk)\"}, {\"statement\": \"Inv\u2026"
+              },
+              {
+                "agent": "boss",
+                "chain": "boss",
+                "loop_step": 9,
+                "tool": "delegate",
+                "args": {
+                  "agent": "customer_service",
+                  "task": "Ticket 101: Customer Tauhid Zaman needs 1 Bulldog tee, SKU CC-TEE-WHITE, size S. Inventory reports 0 on hand and shortfall 1. Linked invoice 501 is open for the rush reprint, due 2026-08-28, and is awaiting owner approval for payment; no payment or receipt is recorded. Recommended arrival is 2026-09-05 if ordered on 2026-08-31, but do not claim shipment or confirmed order completion. Check the recorded order status if available, then draft/send one customer email explaining the order is not ready to ship and the expected date only as an estimate, with no private financial/vendor details. This ticket has no prior emails."
+                },
+                "result": "{\"agent\": \"customer_service\", \"summary\": \"Checked Ticket 101: no sale is recorded, the transaction is not confirmed, and no shipment is recorded. The size S tee is out of stock, so I sent one simulated backordered email explaining it is not ready to ship and that September 5 is only an estimate if the reprint is ordered today.\", \"facts\": [{\"statement\": \"Ticket 101 is for 1 CC-TEE-WHITE Classic Bu\u2026"
+              }
+            ],
+            "delegated_to": [
+              "inventory",
+              "accounting",
+              "customer_service"
+            ]
+          },
+          {
+            "agent": "inventory",
+            "said": [
+              "Ticket 101 cannot be fulfilled now: CC-TEE-WHITE size S has 0 units on hand, leaving a shortfall of 1. The database recommends Bulldog Print Co for 1 unit, with an estimated arrival of 2026-09-05 if ordered on 2026-08-31; however, open invoice 501 already names this SKU and size, so a duplicate restock should not be suggested without confirming that invoice's status. No inventory was updated because no sale or received restock was confirmed."
+            ],
+            "reports": [
+              {
+                "chain": "boss > inventory",
+                "loop_step": 8,
+                "output": {
+                  "agent": "inventory",
+                  "summary": "Ticket 101 cannot be fulfilled now: CC-TEE-WHITE size S has 0 units on hand, leaving a shortfall of 1. The database recommends Bulldog Print Co for 1 unit, with an estimated arrival of 2026-09-05 if ordered on 2026-08-31; however, open invoice 501 already names this SKU and size, so a duplicate restock should not be suggested without confirming that invoice's status. No inventory was updated because no sale or received restock was confirmed.",
+                  "facts": [
+                    {
+                      "statement": "CC-TEE-WHITE size S has 0 units on hand in Aisle B, with 1 unit needed and a calculated shortfall of 1.",
+                      "source": "check_inventory (inventory)"
+                    },
+                    {
+                      "statement": "Other sizes in stock are L, M, and XL; size S is out of stock.",
+                      "source": "check_inventory (inventory)"
+                    },
+                    {
+                      "statement": "The recommended vendor is Bulldog Print Co (vendor 1), with a 5-day lead time and expected arrival 2026-09-05 if ordered today.",
+                      "source": "find_vendors (vendors)"
+                    },
+                    {
+                      "statement": "The restock recommendation is 1 unit, with an estimated cost of $8.00 based on the database unit cost; no vendor quote is recorded.",
+                      "source": "find_vendors (vendors)"
+                    },
+                    {
+                      "statement": "Open invoice 501 with Bulldog Print Co is for $840.00, due 2026-08-28, and describes a rush reprint of CC-TEE-WHITE S; it is 3 days overdue.",
+                      "source": "find_vendors (vendors)"
+                    }
+                  ],
+                  "unknowns": [
+                    "Whether open invoice 501 represents a restock already in transit or has otherwise been fulfilled.",
+                    "A confirmed vendor quote or actual purchase order."
+                  ],
+                  "recommendations": [
+                    "Confirm the status of open invoice 501 before placing any additional restock order."
+                  ],
+                  "payment_proposals": [],
+                  "customer_message": null
+                }
+              }
+            ],
+            "tools_used": [
+              "check_inventory",
+              "find_vendors"
+            ],
+            "tool_calls": [
+              {
+                "agent": "inventory",
+                "chain": "boss > inventory",
+                "loop_step": 4,
+                "tool": "check_inventory",
+                "args": {
+                  "sku": "CC-TEE-WHITE",
+                  "size": "S",
+                  "qty_needed": 1
+                },
+                "result": "{\"found\": true, \"shop_date\": \"2026-08-31\", \"lines\": [{\"sku\": \"CC-TEE-WHITE\", \"name\": \"Classic Bulldog Tee\", \"size\": \"S\", \"qty\": 0, \"location\": \"Aisle B\", \"qty_needed\": 1, \"shortfall (calculated)\": 1, \"status\": \"short\", \"list_price\": 28.0, \"internal\": {\"unit_cost\": 8.0, \"margin_per_unit_at_list (calculated)\": 20.0, \"margin_pct_at_list (calculated)\": 71.4, \"note\": \"Internal only. Never share unit c\u2026"
+              },
+              {
+                "agent": "inventory",
+                "chain": "boss > inventory",
+                "loop_step": 7,
+                "tool": "find_vendors",
+                "args": {
+                  "sku": "CC-TEE-WHITE",
+                  "size": "S",
+                  "qty_needed": 1
+                },
+                "result": "{\"source\": \"database\", \"shop_date\": \"2026-08-31\", \"sku\": \"CC-TEE-WHITE\", \"product\": \"Classic Bulldog Tee\", \"vendors\": [{\"id\": 1, \"name\": \"Bulldog Print Co\", \"specialty\": \"apparel reprint\", \"lead_days\": 5, \"evidence\": [\"past invoice 501 names CC-TEE-WHITE\", \"specialty 'apparel reprint' fits 'Classic Bulldog Tee' (inferred)\"], \"expected_arrival_if_ordered_today (calculated)\": \"2026-09-05\", \"open_in\u2026"
+              }
+            ],
+            "delegated_to": []
+          },
+          {
+            "agent": "accounting",
+            "said": [
+              "Invoice 501 is open and 3 days overdue as of shop date 2026-08-31. I prepared, but did not make, a payment proposal for the full $840.00 rush reprint invoice; checking cash is $1,000.00, leaving $160.00 after this invoice, before the next rent obligation."
+            ],
+            "reports": [
+              {
+                "chain": "boss > accounting",
+                "loop_step": 8,
+                "output": {
+                  "agent": "accounting",
+                  "summary": "Invoice 501 is open and 3 days overdue as of shop date 2026-08-31. I prepared, but did not make, a payment proposal for the full $840.00 rush reprint invoice; checking cash is $1,000.00, leaving $160.00 after this invoice, before the next rent obligation.",
+                  "facts": [
+                    {
+                      "statement": "Shop date is 2026-08-31.",
+                      "source": "get_documents (desk)"
+                    },
+                    {
+                      "statement": "Invoice 501 for the rush reprint CC-TEE-WHITE size S is open, owed to Bulldog Print Co, for $840.00, due 2026-08-28 and 3 days overdue.",
+                      "source": "get_documents (invoices)"
+                    },
+                    {
+                      "statement": "No payment is recorded on the linked item.",
+                      "source": "get_tickets (ticket 101)"
+                    },
+                    {
+                      "statement": "The checking account balance is $1,000.00 as of 2026-08-31.",
+                      "source": "get_documents (cash)"
+                    },
+                    {
+                      "statement": "After the $840.00 open invoice, calculated cash remaining is $160.00; cash after all listed open invoices and next rent is calculated at -$2,240.00.",
+                      "source": "get_financials (cash_position)"
+                    }
+                  ],
+                  "unknowns": [],
+                  "recommendations": [
+                    "Prioritize this overdue invoice, subject to human approval. No payment has been made."
+                  ],
+                  "payment_proposals": [
+                    {
+                      "kind": "invoice",
+                      "ref_id": 501,
+                      "payee": "Bulldog Print Co",
+                      "amount": 840.0,
+                      "reference": "Invoice 501 \u2014 Rush reprint CC-TEE-WHITE S, due 2026-08-28",
+                      "reason": "Open invoice is 3 days overdue; checking cash covers the invoice, leaving $160.00 before the next rent obligation.",
+                      "approval_status": "needs_human_approval"
+                    }
+                  ],
+                  "customer_message": null
+                }
+              }
+            ],
+            "tools_used": [
+              "get_tickets",
+              "get_documents",
+              "get_financials"
+            ],
+            "tool_calls": [
+              {
+                "agent": "accounting",
+                "chain": "boss > accounting",
+                "loop_step": 5,
+                "tool": "get_tickets",
+                "args": {
+                  "ticket_id": 101
+                },
+                "result": "{\"shop_date\": \"2026-08-31\", \"count\": 1, \"tickets\": [{\"id\": 101, \"type\": \"customer_order\", \"requester\": \"Tauhid Zaman\", \"subject\": \"Bulldog tee\", \"sku\": \"CC-TEE-WHITE\", \"size\": \"S\", \"qty\": 1, \"lease_id\": null, \"invoice_id\": 501, \"status\": \"open\", \"notes\": \"Needs a tee in size S.\", \"created_at\": \"2026-08-31T09:15:00-04:00\", \"invoice\": {\"id\": 501, \"vendor_id\": 1, \"amount\": 840.0, \"due_date\": \"2026-0\u2026"
+              },
+              {
+                "agent": "accounting",
+                "chain": "boss > accounting",
+                "loop_step": 5,
+                "tool": "get_documents",
+                "args": {
+                  "doc_type": "invoices",
+                  "doc_id": 501
+                },
+                "result": "{\"shop_date\": \"2026-08-31\", \"invoices\": [{\"id\": 501, \"vendor_id\": 1, \"amount\": 840.0, \"due_date\": \"2026-08-28\", \"status\": \"open\", \"description\": \"Rush reprint CC-TEE-WHITE S\", \"vendor_name\": \"Bulldog Print Co\", \"days_overdue (calculated)\": 3, \"days_until_due (calculated)\": 0}]}"
+              },
+              {
+                "agent": "accounting",
+                "chain": "boss > accounting",
+                "loop_step": 5,
+                "tool": "get_documents",
+                "args": {
+                  "doc_type": "cash"
+                },
+                "result": "{\"shop_date\": \"2026-08-31\", \"cash_accounts\": [{\"name\": \"checking\", \"balance\": 1000.0, \"date\": \"2026-08-31\"}]}"
+              },
+              {
+                "agent": "accounting",
+                "chain": "boss > accounting",
+                "loop_step": 6,
+                "tool": "get_financials",
+                "args": {},
+                "result": "{\"shop_date\": \"2026-08-31\", \"formulas\": {\"gross_margin_per_unit\": \"list_price - unit_cost\", \"gross_margin_pct\": \"(price - unit_cost) / price x 100\", \"markup_pct\": \"(price - unit_cost) / unit_cost x 100\", \"discounted_price\": \"list_price x (1 - discount_pct / 100)\", \"revenue\": \"qty x price charged\", \"cost_of_goods_sold\": \"qty x unit_cost\", \"gross_profit\": \"revenue - cost_of_goods_sold\", \"max_discou\u2026"
+              }
+            ],
+            "delegated_to": []
+          },
+          {
+            "agent": "customer_service",
+            "said": [
+              "Hi Tauhid,\n\nThanks for choosing the Bulldog tee. Your size S is not currently in stock, so your order is not ready to ship and has not been sent. If the reprint is ordered today, the expected arrival is September 5, but that date is only an estimate and is not guaranteed. We\u2019ll update you when there\u2019s progress.\n\nThanks for your patience\u2014we appreciate your choice! :)"
+            ],
+            "reports": [
+              {
+                "chain": "boss > customer_service",
+                "loop_step": 13,
+                "output": {
+                  "agent": "customer_service",
+                  "summary": "Checked Ticket 101: no sale is recorded, the transaction is not confirmed, and no shipment is recorded. The size S tee is out of stock, so I sent one simulated backordered email explaining it is not ready to ship and that September 5 is only an estimate if the reprint is ordered today.",
+                  "facts": [
+                    {
+                      "statement": "Ticket 101 is for 1 CC-TEE-WHITE Classic Bulldog Tee in size S.",
+                      "source": "get_tickets (tickets)"
+                    },
+                    {
+                      "statement": "CC-TEE-WHITE size S has 0 units on hand and a shortfall of 1.",
+                      "source": "check_inventory (inventory)"
+                    },
+                    {
+                      "statement": "The recorded transaction status is no_sale_recorded and transaction_confirmed is false.",
+                      "source": "check_order_status (sales/inventory_changes)"
+                    },
+                    {
+                      "statement": "No shipment is recorded.",
+                      "source": "check_order_status (customer_emails/shipment status)"
+                    },
+                    {
+                      "statement": "One simulated customer email was saved with order status backordered.",
+                      "source": "send_customer_email (customer_emails)"
+                    }
+                  ],
+                  "unknowns": [
+                    "The database does not provide customer contact details.",
+                    "The September 5 expected arrival is only an estimate; a confirmed completion or shipment date is unavailable."
+                  ],
+                  "recommendations": [],
+                  "payment_proposals": [],
+                  "customer_message": "Hi Tauhid,\n\nThanks for choosing the Bulldog tee. Your size S is not currently in stock, so your order is not ready to ship and has not been sent. If the reprint is ordered today, the expected arrival is September 5, but that date is only an estimate and is not guaranteed. We\u2019ll update you when there\u2019s progress.\n\nThanks for your patience\u2014we appreciate your choice! :)"
+                }
+              }
+            ],
+            "tools_used": [
+              "check_order_status",
+              "get_tickets",
+              "check_inventory",
+              "send_customer_email"
+            ],
+            "tool_calls": [
+              {
+                "agent": "customer_service",
+                "chain": "boss > customer_service",
+                "loop_step": 10,
+                "tool": "check_order_status",
+                "args": {
+                  "ticket_id": 101
+                },
+                "result": "{\"found\": true, \"shop_date\": \"2026-08-31\", \"ticket_id\": 101, \"customer\": \"Tauhid Zaman\", \"sku\": \"CC-TEE-WHITE\", \"size\": \"S\", \"units_ordered\": 1, \"units_sold_recorded\": 0, \"units_returned\": 0, \"transaction_status\": \"no_sale_recorded\", \"transaction_confirmed\": false, \"sales\": [], \"shipment_status\": \"no_shipment_record\", \"shipment_confirmed\": false, \"shipment_note\": \"The database has no shipments or\u2026"
+              },
+              {
+                "agent": "customer_service",
+                "chain": "boss > customer_service",
+                "loop_step": 11,
+                "tool": "get_tickets",
+                "args": {
+                  "ticket_id": 101
+                },
+                "result": "{\"shop_date\": \"2026-08-31\", \"count\": 1, \"tickets\": [{\"id\": 101, \"type\": \"customer_order\", \"requester\": \"Tauhid Zaman\", \"subject\": \"Bulldog tee\", \"sku\": \"CC-TEE-WHITE\", \"size\": \"S\", \"qty\": 1, \"lease_id\": null, \"invoice_id\": 501, \"status\": \"open\", \"notes\": \"Needs a tee in size S.\", \"created_at\": \"2026-08-31T09:15:00-04:00\", \"invoice\": {\"id\": 501, \"vendor_id\": 1, \"amount\": 840.0, \"due_date\": \"2026-0\u2026"
+              },
+              {
+                "agent": "customer_service",
+                "chain": "boss > customer_service",
+                "loop_step": 11,
+                "tool": "check_inventory",
+                "args": {
+                  "sku": "CC-TEE-WHITE",
+                  "size": "S",
+                  "qty_needed": 1
+                },
+                "result": "{\"found\": true, \"shop_date\": \"2026-08-31\", \"lines\": [{\"sku\": \"CC-TEE-WHITE\", \"name\": \"Classic Bulldog Tee\", \"size\": \"S\", \"qty\": 0, \"location\": \"Aisle B\", \"qty_needed\": 1, \"shortfall (calculated)\": 1, \"status\": \"short\", \"list_price\": 28.0, \"internal\": {\"unit_cost\": 8.0, \"margin_per_unit_at_list (calculated)\": 20.0, \"margin_pct_at_list (calculated)\": 71.4, \"note\": \"Internal only. Never share unit c\u2026"
+              },
+              {
+                "agent": "customer_service",
+                "chain": "boss > customer_service",
+                "loop_step": 12,
+                "tool": "send_customer_email",
+                "args": {
+                  "ticket_id": 101,
+                  "subject": "Update on your Bulldog tee",
+                  "body": "Hi Tauhid,\n\nThanks for choosing the Bulldog tee. Your size S is not currently in stock, so your order is not ready to ship and has not been sent. If the reprint is ordered today, the expected arrival is September 5, but that date is only an estimate and is not guaranteed. We\u2019ll update you when there\u2019s progress.\n\nThanks for your patience\u2014we appreciate your choice! :)",
+                  "order_status": "backordered"
+                },
+                "result": "{\"sent\": false, \"simulated\": true, \"delivery\": \"SIMULATED: saved to customer_emails, no real email sent\", \"email_id\": 1, \"to\": \"Tauhid Zaman\", \"to_address\": \"Not in the database (no customer contact details).\", \"ticket_id\": 101, \"order_status\": \"backordered\", \"subject\": \"Update on your Bulldog tee\"}"
+              }
+            ],
+            "delegated_to": []
+          }
+        ]
+      }
+    },
+    {
+      "step": 15,
+      "name": "unknown ticket",
+      "request": "POST /api/tickets/999/run",
+      "status_code": 404,
+      "expected_status": 404,
+      "check": null,
+      "seconds": 0.0,
+      "result": "PASS",
+      "response": {
+        "detail": "Ticket 999 is not in the database."
+      }
+    },
+    {
+      "step": 16,
+      "name": "unknown approval",
+      "request": "POST /api/approvals/9999/approve",
+      "status_code": 404,
+      "expected_status": 404,
+      "check": null,
+      "seconds": 0.0,
+      "result": "PASS",
+      "response": {
+        "detail": "Approval 9999 not found."
+      }
+    },
+    {
+      "step": 17,
+      "name": "reset for a fresh run",
+      "request": "POST /api/reset",
+      "status_code": 200,
+      "expected_status": 200,
+      "check": "back to $3,400, 3 open tickets, 0 approvals, 0 payments, rent due 2026-09-02",
+      "seconds": 0.0,
+      "result": "PASS",
+      "response": {
+        "reset": true,
+        "open_tickets": 3,
+        "checking_balance": 3400.0,
+        "note": "Audit trail kept: it is append-only."
+      }
+    }
+  ],
+  "checking_tool_agent_check": {
+    "how": "Scratch copy of the original data: reset, run 102, approve rent, run 101; did the agents call get_checking_account and report the $1,000 ending balance?",
+    "result": "PASS",
+    "ticket_102_run": {
+      "stop_reason": "completed",
+      "steps": 10,
+      "used_get_checking_account": true
+    },
+    "rent_approved": {
+      "effect": "Rent for 2026-09-02 paid; lease 1 next due 2026-10-02.",
+      "checking_balance": 1000.0
+    },
+    "ticket_101_run": {
+      "stop_reason": "completed",
+      "steps": 15,
+      "seconds": 39.64
+    },
+    "agents_that_called_get_checking_account": [
+      "accounting",
+      "boss"
+    ],
+    "tool_result_ending_balance": [
+      "{\"found\": true, \"shop_date\": \"2026-08-31\", \"account\": \"checking\", \"ending_balance\": 1000.0, \"balance_as_of\": \"2026-08-31",
+      "{\"found\": true, \"shop_date\": \"2026-08-31\", \"account\": \"checking\", \"ending_balance\": 1000.0, \"balance_as_of\": \"2026-08-31"
+    ],
+    "decision_mentions_1000": true,
+    "boss_decision": "Hold fulfillment for Tauhid Zaman\u2019s order because CC-TEE-WHITE size S is unavailable. The customer has been emailed and asked how they would like to proceed; no shipment or inventory change will occur until stock is available.",
+    "boss_reasoning": [
+      "Inventory reports 0 units of CC-TEE-WHITE size S on hand against the requested quantity of 1, leaving a shortfall of 1 (check_inventory).",
+      "No transaction is recorded for ticket 101, so the order has not shipped or been completed (check_order_status).",
+      "The customer email was saved with order status \u201cbackordered,\u201d and no restock date is recorded (send_customer_email; customer_service report).",
+      "Invoice 501 is open and 3 days overdue, so it requires owner approval separately from this customer-order decision (get_documents/accounting report)."
+    ],
+    "tools_by_agent": {
+      "boss": [
+        "get_tickets",
+        "get_checking_account"
+      ],
+      "inventory": [
+        "check_inventory"
+      ],
+      "accounting": [
+        "get_checking_account",
+        "get_documents",
+        "get_tickets",
+        "get_financials"
+      ],
+      "customer_service": [
+        "get_tickets",
+        "check_inventory",
+        "check_order_status",
+        "send_customer_email"
+      ]
+    }
+  }
+}

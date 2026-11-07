@@ -1,0 +1,797 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Ticket Plan Deck</title>
+<style>
+  :root {
+    --bg: #f4f6f9;
+    --surface: #ffffff;
+    --surface-2: #eef2f7;
+    --text: #15202b;
+    --muted: #5b6876;
+    --line: #d8dee6;
+    --accent: #00356b;
+    --accent-soft: #e3ecf6;
+    --accent-text: #ffffff;
+    --pending: #8a6d1f;
+    --pending-soft: #fdf6e3;
+    --chip: #f0f3f7;
+    --quote: #f7f9fc;
+    --shadow: 0 1px 2px rgba(16, 24, 40, .06), 0 4px 16px rgba(16, 24, 40, .06);
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #0f141a;
+      --surface: #171e26;
+      --surface-2: #1e2731;
+      --text: #e7edf3;
+      --muted: #9aa8b6;
+      --line: #2b3642;
+      --accent: #7fb2ea;
+      --accent-soft: #1d2d40;
+      --accent-text: #0f141a;
+      --pending: #e2c26e;
+      --pending-soft: #2a2516;
+      --chip: #212b36;
+      --quote: #1b232c;
+      --shadow: 0 1px 2px rgba(0, 0, 0, .3), 0 4px 16px rgba(0, 0, 0, .25);
+    }
+  }
+  :root[data-theme="dark"] {
+    --bg: #0f141a;
+    --surface: #171e26;
+    --surface-2: #1e2731;
+    --text: #e7edf3;
+    --muted: #9aa8b6;
+    --line: #2b3642;
+    --accent: #7fb2ea;
+    --accent-soft: #1d2d40;
+    --accent-text: #0f141a;
+    --pending: #e2c26e;
+    --pending-soft: #2a2516;
+    --chip: #212b36;
+    --quote: #1b232c;
+    --shadow: 0 1px 2px rgba(0, 0, 0, .3), 0 4px 16px rgba(0, 0, 0, .25);
+  }
+
+  * { box-sizing: border-box; }
+  html { -webkit-text-size-adjust: 100%; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--text);
+    font: 15px/1.55 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  }
+  .wrap { max-width: 1120px; margin: 0 auto; padding: 0 16px; }
+
+  header { padding: 28px 0 8px; }
+  .eyebrow { color: var(--muted); font-size: 13px; letter-spacing: .02em; }
+  h1 { font-size: 26px; line-height: 1.2; margin: 4px 0 6px; }
+  .sub { color: var(--muted); margin: 0; max-width: 70ch; }
+
+  /* Tabs */
+  .tabbar {
+    position: sticky; top: 0; z-index: 5;
+    background: var(--bg);
+    padding: 14px 0 0;
+    border-bottom: 1px solid var(--line);
+  }
+  .tabs { display: flex; gap: 6px; overflow-x: auto; scrollbar-width: none; }
+  .tabs::-webkit-scrollbar { display: none; }
+  .tab {
+    flex: 0 0 auto;
+    display: inline-flex; align-items: center; gap: 8px;
+    padding: 9px 14px 10px;
+    border: 1px solid transparent; border-bottom: none;
+    border-radius: 10px 10px 0 0;
+    background: transparent; color: var(--muted);
+    font: inherit; font-weight: 600; cursor: pointer;
+    user-select: none; -webkit-user-select: none;
+  }
+  .tab:hover { color: var(--text); background: var(--surface-2); }
+  .tab:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
+  .tab[aria-selected="true"] {
+    color: var(--text); background: var(--surface);
+    border-color: var(--line); margin-bottom: -1px;
+  }
+  .tab .tag {
+    font-size: 11px; font-weight: 700; letter-spacing: .03em;
+    padding: 2px 7px; border-radius: 999px;
+    background: var(--chip); color: var(--muted);
+  }
+  .tab[aria-selected="true"] .tag { background: var(--accent-soft); color: var(--accent); }
+  .tab.armed { background: var(--accent-soft); color: var(--accent); }
+  .hint { color: var(--muted); font-size: 12.5px; padding: 8px 0 10px; display: flex; align-items: center; gap: 6px; }
+  .hint kbd {
+    font-family: inherit; font-size: 11px; font-weight: 600; line-height: 1; padding: 3px 6px; border-radius: 5px; white-space: nowrap;
+    border: 1px solid var(--line); background: var(--surface);
+  }
+
+  main { padding: 22px 0 56px; }
+  .panel[hidden] { display: none; }
+
+  .card {
+    background: var(--surface); border: 1px solid var(--line);
+    border-radius: 14px; box-shadow: var(--shadow);
+  }
+
+  /* Overview */
+  .overview { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 14px; }
+  .mini { padding: 16px; cursor: pointer; transition: border-color .15s; user-select: none; -webkit-user-select: none; }
+  .mini:hover { border-color: var(--accent); }
+  .mini:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+  .mini .num { font-size: 13px; color: var(--muted); font-weight: 600; }
+  .mini h3 { margin: 4px 0 6px; font-size: 17px; }
+  .mini p { margin: 0 0 12px; color: var(--muted); font-size: 14px; }
+  .status-row { display: flex; gap: 6px; flex-wrap: wrap; }
+  .pill {
+    font-size: 12px; font-weight: 600; padding: 3px 9px; border-radius: 999px;
+    background: var(--chip); color: var(--muted);
+  }
+  .pill.ok { background: var(--accent-soft); color: var(--accent); }
+  .pill.wait { background: var(--pending-soft); color: var(--pending); }
+  .section-title { font-size: 13px; font-weight: 700; color: var(--muted); letter-spacing: .04em; text-transform: uppercase; margin: 26px 0 10px; }
+
+  /* Ticket panel */
+  .ticket-head { padding: 18px 20px; display: grid; grid-template-columns: 1.3fr 1fr; gap: 20px; }
+  .ticket-head h2 { margin: 2px 0 6px; font-size: 22px; line-height: 1.25; }
+  .ticket-head .quote-note { margin: 0; color: var(--muted); }
+  .ticket-head .quote-note strong { color: var(--text); font-weight: 600; }
+  .facts { display: grid; grid-template-columns: auto 1fr; gap: 6px 14px; margin: 0; font-size: 14px; }
+  .facts dt { color: var(--muted); }
+  .facts dd { margin: 0; font-weight: 500; }
+
+  .compare { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-top: 16px; }
+  .col { padding: 18px 20px 20px; }
+  .col-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 12px; }
+  .col-head h3 { margin: 0; font-size: 17px; }
+  .plan-quote {
+    margin: 0 0 16px; padding: 12px 14px;
+    background: var(--quote); border-left: 3px solid var(--accent); border-radius: 0 8px 8px 0;
+    font-size: 14px; color: var(--text);
+  }
+  .plan-quote .by { display: block; margin-top: 8px; color: var(--muted); font-size: 12.5px; }
+  h4 { margin: 16px 0 8px; font-size: 13px; color: var(--muted); letter-spacing: .03em; text-transform: uppercase; }
+  ol.flow { list-style: none; margin: 0; padding: 0; counter-reset: s; }
+  ol.flow li {
+    counter-increment: s; position: relative;
+    padding: 0 0 12px 38px; font-size: 14px;
+  }
+  ol.flow li::before {
+    content: counter(s); position: absolute; left: 0; top: 0;
+    width: 24px; height: 24px; border-radius: 50%;
+    display: grid; place-items: center;
+    background: var(--accent); color: var(--accent-text); font-size: 12px; font-weight: 700;
+  }
+  ol.flow li:not(:last-child)::after {
+    content: ""; position: absolute; left: 11.5px; top: 26px; bottom: 2px; width: 1px; background: var(--line);
+  }
+  .who { font-weight: 700; }
+  .chips { display: flex; flex-wrap: wrap; gap: 6px; }
+  .chip {
+    display: inline-flex; align-items: center; gap: 6px;
+    font-size: 13px; padding: 4px 10px; border-radius: 8px; background: var(--chip);
+  }
+  .chip code { font: 600 12.5px/1.3 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; color: var(--accent); }
+  .chip .from { color: var(--muted); }
+
+  .actual { border-style: dashed; box-shadow: none; background: transparent; }
+  .slots { display: grid; gap: 10px; margin: 0; padding: 0; list-style: none; }
+  .slots li {
+    padding: 11px 13px; border-radius: 10px; border: 1px dashed var(--line);
+    display: flex; justify-content: space-between; gap: 10px; align-items: baseline; font-size: 14px;
+  }
+  .slots li span:last-child { color: var(--muted); font-size: 13px; white-space: nowrap; }
+  .placeholder-note { color: var(--muted); font-size: 14px; margin: 0 0 14px; }
+
+  /* Work in progress */
+  .wip { display: grid; grid-template-columns: minmax(0, 340px) 1fr; gap: 28px; align-items: center; padding: 26px; }
+  .wip h2 { margin: 0 0 8px; font-size: 24px; }
+  .wip p { margin: 0 0 10px; color: var(--muted); }
+  .wip .joke { color: var(--text); font-weight: 600; }
+  .wip svg { width: 100%; height: auto; display: block; }
+  .sign-group { transform-origin: 292px 270px; animation: wobble 3.2s ease-in-out infinite; }
+  .tail { transform-origin: 112px 238px; animation: swish 2.4s ease-in-out infinite; }
+  .blink { transform-origin: center; animation: blink 5s infinite; }
+  @keyframes wobble { 0%, 100% { transform: rotate(-2deg); } 50% { transform: rotate(2.5deg); } }
+  @keyframes swish { 0%, 100% { transform: rotate(0deg); } 50% { transform: rotate(-9deg); } }
+  @keyframes blink { 0%, 95%, 100% { transform: scaleY(1); } 97% { transform: scaleY(.1); } }
+  @media (prefers-reduced-motion: reduce) {
+    .sign-group, .tail, .blink { animation: none; }
+  }
+
+  .toast {
+    position: fixed; left: 50%; bottom: 22px; transform: translateX(-50%) translateY(20px);
+    background: var(--text); color: var(--bg); padding: 9px 14px; border-radius: 10px;
+    font-size: 13.5px; font-weight: 600; opacity: 0; pointer-events: none; transition: .2s; max-width: calc(100% - 32px);
+  }
+  .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+
+  footer { color: var(--muted); font-size: 12.5px; padding: 0 0 28px; }
+
+  @media (max-width: 860px) {
+    .overview { grid-template-columns: 1fr; }
+    .ticket-head, .compare, .wip { grid-template-columns: 1fr; }
+    .wip { padding: 20px; }
+    .wip svg { max-width: 300px; margin: 0 auto; }
+  }
+  @media (max-width: 480px) {
+    h1 { font-size: 22px; }
+    .ticket-head, .col { padding: 16px; }
+    .slots li { flex-direction: column; gap: 2px; }
+  }
+
+  /* Problem 9: filled Actual side and the Cash tab */
+  .actual.done { border-style: solid; background: var(--surface); box-shadow: var(--shadow); }
+  .actual-list { margin: 0; display: grid; gap: 10px; }
+  .actual-list dt { font-size: 12.5px; font-weight: 700; color: var(--muted); letter-spacing: .02em; }
+  .actual-list dd { margin: 2px 0 0; font-size: 14px; }
+  .actual-list code, .match code { font: 600 12.5px ui-monospace, SFMono-Regular, Menlo, monospace; color: var(--accent); }
+  .said { margin: 6px 0 0; padding: 8px 11px; background: var(--quote); border-left: 3px solid var(--accent); border-radius: 0 8px 8px 0; white-space: pre-line; font-size: 13.5px; }
+  .tag { display: inline-block; font-size: 11.5px; font-weight: 700; padding: 2px 8px; border-radius: 999px; background: var(--chip); color: var(--muted); }
+  .ok-text { color: #1f7a45; font-weight: 700; }
+  .match { margin-top: 16px; padding: 12px 14px; border-radius: 10px; font-size: 14px; }
+  .match span { font-weight: 700; }
+  .match.yes { background: #e3f4ea; color: #154d2d; }
+  .match.partial { background: var(--pending-soft); color: #5e4a12; }
+  .match.no { background: #fbe4e4; color: #6d1b1b; }
+  .cash-card { padding: 22px; }
+  .cash-head { display: flex; justify-content: space-between; gap: 16px; align-items: flex-start; flex-wrap: wrap; }
+  .cash-head h2 { margin: 4px 0 6px; font-size: 22px; }
+  .recon { font-weight: 800; padding: 8px 14px; border-radius: 999px; white-space: nowrap; }
+  .recon.ok { background: #e3f4ea; color: #1f7a45; }
+  .recon.bad { background: #fbe4e4; color: #a12828; }
+  .tiles { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; margin: 18px 0 6px; }
+  .tile { padding: 12px 14px; border-radius: 12px; background: var(--surface-2); }
+  .tile span { display: block; font-size: 12.5px; color: var(--muted); }
+  .tile strong { display: block; font-size: 22px; margin-top: 4px; font-variant-numeric: tabular-nums; }
+  .tile.out strong, .neg { color: #b42318; }
+  .tile.end { background: var(--accent-soft); }
+  .cash-card h3 { margin: 20px 0 10px; font-size: 15px; }
+  .impact { display: grid; gap: 8px; }
+  .impact-row { display: grid; grid-template-columns: 54px minmax(80px, 1fr) 100px minmax(0, 1.2fr); gap: 10px; align-items: center; font-size: 14px; }
+  .impact-row em { font-style: normal; color: var(--muted); font-size: 13px; }
+  .bar { height: 12px; border-radius: 999px; background: var(--surface-2); overflow: hidden; }
+  .bar span { display: block; height: 100%; background: #d9534f; border-radius: 999px; }
+  .tk { display: inline-block; font-size: 12px; font-weight: 800; padding: 2px 8px; border-radius: 999px; background: var(--accent-soft); color: var(--accent); }
+  .table-wrap { overflow-x: auto; }
+  .ledger { width: 100%; border-collapse: collapse; font-size: 14px; }
+  .ledger th { text-align: left; font-size: 12px; color: var(--muted); font-weight: 700; padding: 8px; border-bottom: 2px solid var(--line); }
+  .ledger td { padding: 9px 8px; border-bottom: 1px solid var(--line); vertical-align: top; }
+  .ledger td:nth-last-child(-n+2) { text-align: right; white-space: nowrap; font-variant-numeric: tabular-nums; }
+  .ledger th:nth-last-child(-n+2) { text-align: right; }
+  .ledger tr.start td, .ledger tr.zero td { color: var(--muted); }
+  .ledger tr.end td { border-bottom: none; font-size: 15px; }
+  .cash-card .note { color: var(--muted); font-size: 13.5px; margin: 14px 0 0; }
+  @media (max-width: 860px) { .tiles { grid-template-columns: 1fr 1fr; } .impact-row { grid-template-columns: 48px 1fr 90px; } .impact-row em { grid-column: 2 / -1; } }
+
+  /* Problem 10: Reflection tab */
+  .refl-card { padding: 22px; }
+  .refl-title { margin: 4px 0 6px; font-size: 22px; }
+  .refl-jump { display: flex; gap: 8px; flex-wrap: wrap; margin: 10px 0 4px; }
+  .refl-jump a { text-decoration: none; font-size: 13px; padding: 5px 12px; }
+  .refl-h { margin: 24px 0 10px; font-size: 16px; }
+  .tk101 { background: #e3ecf6; color: #00356b; }
+  .tk102 { background: #e3f4ea; color: #1f7a45; }
+  .tk103 { background: #fdf0e1; color: #a1520c; }
+  .diff { border: 1px solid var(--line); border-left-width: 6px; border-radius: 12px; padding: 14px 16px; margin-bottom: 14px; scroll-margin-top: 90px; }
+  .diff.tkb101 { border-left-color: #00356b; } .diff.tkb102 { border-left-color: #1f7a45; } .diff.tkb103 { border-left-color: #c2680f; }
+  .diff-head { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-bottom: 10px; }
+  .diff-head h3 { margin: 0; font-size: 17px; }
+  .diff-head .tk { font-size: 13px; padding: 4px 11px; }
+  .match-pill { margin-left: auto; font-size: 12.5px; font-weight: 700; padding: 3px 10px; border-radius: 999px; }
+  .match-pill.yes { background: #e3f4ea; color: #1f7a45; } .match-pill.partial { background: var(--pending-soft); color: var(--pending); } .match-pill.no { background: #fbe4e4; color: #a12828; }
+  .diff-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+  .diff-grid p:not(.label) { margin: 0; font-size: 14px; }
+  .label { margin: 0 0 4px; font-size: 12px; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: .04em; }
+  .diff > .label { margin-top: 12px; }
+  .mine { margin: 0; padding: 10px 14px; background: var(--quote); border-left: 3px solid var(--accent); border-radius: 0 8px 8px 0; font-size: 14.5px; }
+  .refl-box { border: 1px solid var(--line); border-radius: 12px; padding: 14px 16px; background: var(--surface); }
+  .refl-box p { margin: 0; font-size: 14.5px; } .refl-box p + p { margin-top: 8px; }
+  .refl-box .tk { margin-right: 6px; }
+  .from-run { color: var(--muted); font-size: 13.5px !important; }
+  .two-lists { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-top: 24px; }
+  .two-lists h3 { margin: 0 0 8px; font-size: 16px; }
+  .two-lists ol { margin: 0; padding-left: 20px; font-size: 14.5px; } .two-lists li + li { margin-top: 8px; }
+  .refl-box.good { border-top: 4px solid #1f7a45; } .refl-box.gap { border-top: 4px solid #c2680f; }
+  @media (max-width: 860px) { .diff-grid, .two-lists { grid-template-columns: 1fr; } .match-pill { margin-left: 0; } }
+</style>
+</head>
+<body>
+
+<header class="wrap">
+  <div class="eyebrow">Campus Customs · Homework 5 · Problem 6</div>
+  <h1>Plan the Three Tickets</h1>
+  <p class="sub">What I expect the agent team to do with each open ticket. After the agents run, the Actual side gets filled in so the two can be compared.</p>
+</header>
+
+<div class="tabbar">
+  <div class="wrap">
+    <div class="tabs" role="tablist" aria-label="Deck sections">
+      <button class="tab" role="tab" id="tab-overview" aria-controls="overview" data-panel="overview">Overview</button>
+      <button class="tab" role="tab" id="tab-101" aria-controls="t101" data-panel="t101"><span class="tag">101</span> Bulldog tee</button>
+      <button class="tab" role="tab" id="tab-102" aria-controls="t102" data-panel="t102"><span class="tag">102</span> Rent due</button>
+      <button class="tab" role="tab" id="tab-103" aria-controls="t103" data-panel="t103"><span class="tag">103</span> Bulk hoodies</button>
+      <button class="tab" role="tab" id="tab-cash" aria-controls="cash" data-panel="cash">Cash</button>
+      <button class="tab" role="tab" id="tab-reflection" aria-controls="reflection" data-panel="reflection">Reflection</button>
+    </div>
+    <div class="hint" aria-hidden="true"><kbd>Double-click</kbd> a tab to open it · <kbd>Enter</kbd> works too</div>
+  </div>
+</div>
+
+<main class="wrap">
+
+  <!-- Overview -->
+  <section class="panel" id="overview" role="tabpanel" aria-labelledby="tab-overview">
+    <div class="section-title" style="margin-top:0">Open tickets · shop date August 31, 2026</div>
+    <div class="overview">
+      <div class="card mini" tabindex="0" data-open="t101">
+        <div class="num">Ticket 101 · customer order</div>
+        <h3>Bulldog tee, size S</h3>
+        <p>Tauhid Zaman: "Needs a tee in size S."</p>
+        <div class="status-row"><span class="pill ok">Expected: written</span><span class="pill ok">Actual: resolved</span></div>
+      </div>
+      <div class="card mini" tabindex="0" data-open="t102">
+        <div class="num">Ticket 102 · rent notice</div>
+        <h3>Shop rent due</h3>
+        <p>Elm City Properties: "Email: shop rent due in 2 days."</p>
+        <div class="status-row"><span class="pill ok">Expected: written</span><span class="pill ok">Actual: resolved</span></div>
+      </div>
+      <div class="card mini" tabindex="0" data-open="t103">
+        <div class="num">Ticket 103 · price override</div>
+        <h3>20 hoodies, bulk discount</h3>
+        <p>Yale AI Club: "Student org wants 20 hoodies, size M, asking for a bulk discount."</p>
+        <div class="status-row"><span class="pill ok">Expected: written</span><span class="pill ok">Actual: resolved</span></div>
+      </div>
+    </div>
+    <div class="section-title">How to use this deck</div>
+    <p class="sub">Double-click a ticket tab, or a card above, to open it. Each ticket shows the facts from <code>campus_customs_new.db</code>, my expected plan, and what actually happened when the agents ran (Problem 9). Cash shows every dollar that moved, and Reflection compares my plan with what happened for each ticket.</p>
+  </section>
+
+  <!-- Ticket 101 -->
+  <section class="panel" id="t101" role="tabpanel" aria-labelledby="tab-101" hidden>
+    <div class="card ticket-head">
+      <div>
+        <div class="eyebrow">Ticket 101 · customer_order · opened 9:15 AM</div>
+        <h2>Bulldog tee for Tauhid Zaman</h2>
+        <p class="quote-note">Ticket note: <strong>"Needs a tee in size S."</strong></p>
+      </div>
+      <dl class="facts">
+        <dt>Product</dt><dd>CC-TEE-WHITE, size S, qty 1</dd>
+        <dt>Linked record</dt><dd>Invoice 501, $840 rush reprint from Bulldog Print Co</dd>
+        <dt>Status</dt><dd>Resolved (Problem 9)</dd>
+      </dl>
+    </div>
+    <div class="compare">
+      <div class="card col">
+        <div class="col-head"><h3>Expected</h3><span class="pill ok">My plan</span></div>
+        <blockquote class="plan-quote">
+          I expect the Boss agent to access the ticket and analyze which agent it will need to assign this work to. It will send this to the customer services agent as this looks like a sale that was already completed but is running late. It will work with the accounting agent to make sure this purchase actually happened. If so, it will then work with the inventory agent to see if this product has already been sent to the customer. Assuming it is a real order and has already been shipped, the customer service agent will reach out to the customer making them aware that their purchase is on the way and provide the timing they can expect to receive the product. After all of this, they should report the status back to the boss agent, who would communicate to me. This will use the inventory tool as well as checking prior purchases.
+          <span class="by">My expectation, in my own words</span>
+        </blockquote>
+        <h4>Expected hand-offs</h4>
+        <ol class="flow">
+          <li><span class="who">Boss</span> reads the ticket and decides which agent to assign.</li>
+          <li><span class="who">Customer Service</span> takes it, since this looks like a completed sale that's running late.</li>
+          <li><span class="who">Accounting</span> confirms the purchase actually happened.</li>
+          <li><span class="who">Inventory</span> checks whether the product has already been sent.</li>
+          <li><span class="who">Customer Service</span> tells Tauhid his purchase is on the way and when to expect it.</li>
+          <li><span class="who">Boss</span> gets the status and reports back to me.</li>
+        </ol>
+        <h4>Tools I expect</h4>
+        <div class="chips">
+          <span class="chip"><span class="from">inventory tool →</span><code>check_inventory</code></span>
+          <span class="chip"><span class="from">checking prior purchases →</span><code>check_order_status</code></span>
+        </div>
+      </div>
+      <div class="card col actual done">
+        <div class="col-head"><h3>Actual</h3><span class="pill ok">Resolved</span></div>
+        <p class="placeholder-note">Run <code>11ad14f3fa2e</code> from the dashboard on Nov 6, 2026 · completed · 14 steps · 28.9 s</p>
+        <dl class="actual-list">
+          <dt>Agents the Boss assigned</dt><dd>Inventory, Accounting and Customer Service (Customer Service twice)</dd>
+          <dt>Hand-offs, in order</dt><dd>Boss → Inventory, Accounting and Customer Service at the same time, then Boss → Customer Service again. No agent handed work to another agent.</dd>
+          <dt>Tools called</dt><dd><code>get_tickets</code>, <code>get_checking_account</code> (Boss) · <code>check_inventory</code>, <code>find_vendors</code> (Inventory) · <code>get_checking_account</code>, <code>get_documents</code>, <code>get_financials</code> (Accounting) · <code>check_order_status</code> ×2, <code>send_customer_email</code> (Customer Service)</dd>
+          <dt>Was the purchase confirmed?</dt><dd><strong>No.</strong> <code>check_order_status</code> found 0 of 1 sold (<code>no_sale_recorded</code>). The database has no record that Tauhid paid.</dd>
+          <dt>Shipping status found</dt><dd>No shipment record. Size S has 0 in stock (sizes M, L and XL are in stock). Invoice 501's rush reprint of this exact tee is the restock, and whether it has shipped isn't recorded, so Inventory said not to order again.</dd>
+          <dt>Message sent to Tauhid</dt><dd><span class="tag">update · simulated, not really sent</span><blockquote class="said">Hi Tauhid, we’re unable to confirm that your order for the white T-shirt in size S went through, and there’s no shipping or pickup update on record yet. We’ll provide an update once the order status is confirmed. Thank you for your patience—you made a great choice! :)</blockquote></dd>
+          <dt>Payment prepared for my approval</dt><dd><strong>$840.00 to Bulldog Print Co</strong> for invoice 501, the supplier's bill for the size S reprint, not a customer refund. <span class="ok-text">I approved it.</span> Checking went from $3,400.00 to $2,560.00 and invoice 501 is now paid.</dd>
+          <dt>Boss's final decision</dt><dd><blockquote class="said">Do not mark or fulfill the sale: size S is out of stock and no sale, shipment, or pickup is recorded. Send Tauhid the status update, and present the overdue $840 invoice for owner approval before any payment is made.</blockquote></dd>
+          <dt>Loop steps and time</dt><dd>14 of 50 steps · 28.9 seconds</dd>
+        </dl>
+        <div class="match partial"><span>Did it match my plan?</span> <strong>Partly.</strong> The right four agents took part and both tools I expected (<code>check_inventory</code>, <code>check_order_status</code>) were used. But my plan assumed a completed sale that had already shipped. The records show no sale and no stock, so nobody told Tauhid his tee was on the way. Instead he got an honest status update, and the supplier's overdue bill for the restock was paid. The Boss sent the work to three agents at once instead of starting with Customer Service.</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Ticket 102 -->
+  <section class="panel" id="t102" role="tabpanel" aria-labelledby="tab-102" hidden>
+    <div class="card ticket-head">
+      <div>
+        <div class="eyebrow">Ticket 102 · rent_notice · opened 11:05 AM</div>
+        <h2>Rent notice from Elm City Properties</h2>
+        <p class="quote-note">Ticket note: <strong>"Email: shop rent due in 2 days."</strong></p>
+      </div>
+      <dl class="facts">
+        <dt>Linked record</dt><dd>Lease 1, Chapel Street shop</dd>
+        <dt>Rent</dt><dd>$2,400 due September 2, 2026</dd>
+        <dt>Status</dt><dd>Resolved (Problem 9)</dd>
+      </dl>
+    </div>
+    <div class="compare">
+      <div class="card col">
+        <div class="col-head"><h3>Expected</h3><span class="pill ok">My plan</span></div>
+        <blockquote class="plan-quote">
+          I expect the Boss agent to access the ticket and analyze which agent it will need to assign this work to. It will send it to the facility agent who will access the rent/lease information confirming if we owe this money. If we do, it will work with the accounting agent to ensure our books are updated and the payment is facilitated and set up. After this is completed the status will be communicated to the boss agent, who will communicate that to me. This will use the accessing our invoices and records tool.
+          <span class="by">My expectation, in my own words</span>
+        </blockquote>
+        <h4>Expected hand-offs</h4>
+        <ol class="flow">
+          <li><span class="who">Boss</span> reads the ticket and decides which agent to assign.</li>
+          <li><span class="who">Facilities</span> checks the rent and lease and confirms we owe the money.</li>
+          <li><span class="who">Accounting</span> updates the books and sets up the payment.</li>
+          <li><span class="who">Boss</span> gets the status and reports back to me.</li>
+        </ol>
+        <h4>Tools I expect</h4>
+        <div class="chips">
+          <span class="chip"><span class="from">invoices and records tool →</span><code>get_documents</code></span>
+        </div>
+      </div>
+      <div class="card col actual done">
+        <div class="col-head"><h3>Actual</h3><span class="pill ok">Resolved</span></div>
+        <p class="placeholder-note">Run <code>3580869f39da</code> from the dashboard on Nov 6, 2026 · completed · 12 steps · 23.3 s</p>
+        <dl class="actual-list">
+          <dt>Agents the Boss assigned</dt><dd>Facilities and Accounting</dd>
+          <dt>Hand-offs, in order</dt><dd>Boss → Facilities and Accounting at the same time, then Facilities → Accounting to prepare the payment.</dd>
+          <dt>Tools called</dt><dd><code>get_tickets</code>, <code>get_checking_account</code> (Boss) · <code>get_documents</code> for the lease and payments (Facilities) · <code>get_checking_account</code>, <code>get_documents</code>, <code>get_financials</code> (Accounting)</dd>
+          <dt>Did the notice match the lease?</dt><dd><strong>Yes.</strong> Lease 1 (Chapel Street shop) owes Elm City Properties $2,400.00, due 2026-09-02, 2 days after the shop date. No earlier payment was on record, so it was really owed and not already paid.</dd>
+          <dt>Payment prepared for my approval</dt><dd><strong>$2,400.00 rent to Elm City Properties.</strong> <span class="ok-text">I approved it.</span> Checking went from $2,560.00 to $160.00, the payment was recorded, and the lease's next due date moved to 2026-10-02.</dd>
+          <dt>Boss's final decision</dt><dd><blockquote class="said">Submit the $2,400 rent payment for owner approval so it can be paid by the 2026-09-02 due date. No payment has been made yet.</blockquote></dd>
+          <dt>Loop steps and time</dt><dd>12 of 50 steps · 23.3 seconds</dd>
+        </dl>
+        <div class="match yes"><span>Did it match my plan?</span> <strong>Yes.</strong> Facilities confirmed we owe the rent, Accounting set up the payment, and the Boss reported back, just as I planned, using <code>get_documents</code>. One detail: the agents only prepared the payment. The books (payments, cash and lease date) were updated when I clicked approve, which is how the safety rules are meant to work.</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Ticket 103 -->
+  <section class="panel" id="t103" role="tabpanel" aria-labelledby="tab-103" hidden>
+    <div class="card ticket-head">
+      <div>
+        <div class="eyebrow">Ticket 103 · price_override · opened 4:55 PM</div>
+        <h2>Yale AI Club bulk hoodie order</h2>
+        <p class="quote-note">Ticket note: <strong>"Student org wants 20 hoodies, size M, asking for a bulk discount."</strong></p>
+      </div>
+      <dl class="facts">
+        <dt>Product</dt><dd>CC-HOOD-NAVY, size M, qty 20</dd>
+        <dt>Asking for</dt><dd>A bulk discount</dd>
+        <dt>Status</dt><dd>Resolved (Problem 9)</dd>
+      </dl>
+    </div>
+    <div class="compare">
+      <div class="card col">
+        <div class="col-head"><h3>Expected</h3><span class="pill ok">My plan</span></div>
+        <blockquote class="plan-quote">
+          The Boss agent will send this to the inventory agent to look up to see if we have these products. It will confirm if we do and update accordingly. Next it will work with the accounting agent to record and create an invoice, and then have the customer services agent reach out to the customer with next steps. All of this will be sent back to the boss agent to provide me with an update on status. This will access our inventory and customer outreach tools.
+          <span class="by">My expectation, in my own words</span>
+        </blockquote>
+        <h4>Expected hand-offs</h4>
+        <ol class="flow">
+          <li><span class="who">Boss</span> sends the ticket to Inventory.</li>
+          <li><span class="who">Inventory</span> checks whether we have the hoodies, confirms and updates stock.</li>
+          <li><span class="who">Accounting</span> records the sale and creates an invoice.</li>
+          <li><span class="who">Customer Service</span> contacts the Yale AI Club with next steps.</li>
+          <li><span class="who">Boss</span> gets the status and reports back to me.</li>
+        </ol>
+        <h4>Tools I expect</h4>
+        <div class="chips">
+          <span class="chip"><span class="from">inventory tools →</span><code>check_inventory</code><code>update_inventory</code></span>
+          <span class="chip"><span class="from">customer outreach →</span><code>send_customer_email</code></span>
+        </div>
+      </div>
+      <div class="card col actual done">
+        <div class="col-head"><h3>Actual</h3><span class="pill ok">Resolved</span></div>
+        <p class="placeholder-note">Run <code>1c44dd316554</code> from the dashboard on Nov 6, 2026 · completed · 12 steps · 30.7 s</p>
+        <dl class="actual-list">
+          <dt>Agents the Boss assigned</dt><dd>Inventory, Accounting and Customer Service</dd>
+          <dt>Hand-offs, in order</dt><dd>Boss → Inventory, Accounting and Customer Service at the same time. No agent handed work to another agent.</dd>
+          <dt>Tools called</dt><dd><code>get_tickets</code>, <code>get_checking_account</code> (Boss) · <code>check_inventory</code> (Inventory) · <code>get_checking_account</code>, <code>get_documents</code>, <code>get_financials</code> ×3, <code>get_tickets</code> (Accounting) · <code>get_tickets</code>, <code>check_inventory</code>, <code>send_customer_email</code> (Customer Service)</dd>
+          <dt>Stock found and any update made</dt><dd>8 of the 20 size M navy hoodies are on hand in Aisle A, so we're 12 short. <strong>No stock was changed</strong>, because nothing was sold.</dd>
+          <dt>Discount and invoice outcome</dt><dd><strong>No discount and no invoice.</strong> Accounting priced it: 20 at the $58 list price is $1,160.00 revenue and $720.00 gross profit (62.1% margin). The database has no discount policy and the club gave no discount rate, so nothing was approved. No tool creates sales invoices, and nothing was sold.</dd>
+          <dt>Message sent to the Yale AI Club</dt><dd><span class="tag">backordered · simulated, not really sent</span><blockquote class="said">Hello Yale AI Club,
+
+Thanks for reaching out about 20 CC-HOOD-NAVY size M hoodies. We can’t currently fulfill the request because only 8 are in stock, leaving a 12-unit shortfall.
+
+We also can’t quote or approve a bulk discount because no discount rate or shop discount policy is recorded. We can’t promise allocation, restock timing, shipment, or a price at this time.
+
+If you’d like the request reviewed, please provide your desired timing and discount details.
+
+Thank you for your understanding—we appreciate your thoughtful planning. :)
+
+Best,
+Campus Customs</blockquote></dd>
+          <dt>Payment prepared for my approval</dt><dd>None. No money moved, so checking stayed at $160.00.</dd>
+          <dt>Boss's final decision</dt><dd><blockquote class="said">Do not approve or quote a bulk-discount sale for Yale AI Club at this time. The request is on hold because only 8 of the requested 20 size-M hoodies are in stock, and the shop has no recorded discount policy or specified discount rate to evaluate.</blockquote></dd>
+          <dt>Loop steps and time</dt><dd>12 of 50 steps · 30.7 seconds</dd>
+        </dl>
+        <div class="match no"><span>Did it match my plan?</span> <strong>No.</strong> The agents I expected took part, and <code>check_inventory</code> and <code>send_customer_email</code> were used. But I expected the sale to go ahead with stock updated and an invoice created. The court put the request on hold and effectively turned down a $1,160 sale. It didn't offer the 8 hoodies we have, and Inventory didn't look for a restock (Bulldog Print Co, 5 days, about $264, which the $160 left in checking couldn't cover). <code>update_inventory</code> was never called because nothing sold.</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Cash -->
+  <section class="panel" id="cash" role="tabpanel" aria-labelledby="tab-cash" hidden>
+    <div class="card cash-card">
+      <div class="cash-head">
+        <div>
+          <div class="eyebrow">Cash · checking account · shop date August 31, 2026</div>
+          <h2>Where our money went</h2>
+          <p class="sub">From the reset balance, through every payment I approved on the dashboard, to the ending balance in <code>cash_accounts</code>.</p>
+        </div>
+        <div class="recon ok">✓ Matches cash_accounts</div>
+      </div>
+      <div class="tiles">
+        <div class="tile"><span>Starting balance (after reset)</span><strong>$3,400.00</strong></div>
+        <div class="tile out"><span>Paid out (2 approved payments)</span><strong>−$3,240.00</strong></div>
+        <div class="tile end"><span>Ending balance (calculated)</span><strong>$160.00</strong></div>
+        <div class="tile db"><span>cash_accounts in the working database</span><strong>$160.00</strong></div>
+      </div>
+      <h3>How each ticket changed cash</h3>
+      <div class="impact">
+          <div class="impact-row"><span class="tk tk101">#101</span><div class="bar"><span style="width:35.0%"></span></div><strong class="neg">−$840.00</strong><em>Paid the supplier's $840 reprint bill</em></div>
+          <div class="impact-row"><span class="tk tk102">#102</span><div class="bar"><span style="width:100.0%"></span></div><strong class="neg">−$2,400.00</strong><em>Paid the $2,400 rent</em></div>
+          <div class="impact-row"><span class="tk tk103">#103</span><div class="bar"><span style="width:0.0%"></span></div><strong class="">$0.00</strong><em>No money moved</em></div>
+      </div>
+      <h3>Itemized adjustments</h3>
+      <div class="table-wrap">
+        <table class="ledger">
+          <thead><tr><th>#</th><th>Ticket</th><th>What it was</th><th>Paid to</th><th>Approved by</th><th>Change</th><th>Balance after</th></tr></thead>
+          <tbody>
+            <tr class="start"><td>—</td><td>—</td><td>Starting balance after reset</td><td>—</td><td>—</td><td>—</td><td>$3,400.00</td></tr>
+            <tr><td>1</td><td><span class="tk tk101">#101</span></td><td>Supplier bill: invoice 501, rush reprint (restock) of the Classic Bulldog Tee, size S</td><td>Bulldog Print Co</td><td>Owner, payment #1</td><td class="neg">−$840.00</td><td>$2,560.00</td></tr>
+            <tr><td>2</td><td><span class="tk tk102">#102</span></td><td>Rent: lease 1, Chapel Street shop, due 2026-09-02</td><td>Elm City Properties</td><td>Owner, payment #2</td><td class="neg">−$2,400.00</td><td>$160.00</td></tr>
+            <tr class="zero"><td>—</td><td><span class="tk tk103">#103</span></td><td>Bulk hoodie request put on hold: no sale, no payment</td><td>—</td><td>No approval needed</td><td>$0.00</td><td>$160.00</td></tr>
+            <tr class="end"><td></td><td></td><td colspan="4"><strong>Ending checking balance</strong></td><td><strong>$160.00</strong></td></tr>
+          </tbody>
+        </table>
+      </div>
+      <p class="note">Every payment was prepared by the Accounting agent and paid only after I clicked <b>Approve and pay</b>. The database records no deposits or sales cash. Ticket 103 made no sale, so no money came in.</p>
+    </div>
+  </section>
+
+  <!-- Reflection -->
+  <section class="panel" id="reflection" role="tabpanel" aria-labelledby="tab-reflection" hidden>
+    <div class="card refl-card">
+      <div class="eyebrow">Reflection · Problem 10</div>
+      <h2 class="refl-title">My plan vs. what actually happened</h2>
+      <p class="sub">For each ticket: what I expected, what the agent team actually did, and what I took away from it. Jump to a ticket:</p>
+      <nav class="refl-jump"><a href="#diff-101" class="tk tk101">Ticket 101</a><a href="#diff-102" class="tk tk102">Ticket 102</a><a href="#diff-103" class="tk tk103">Ticket 103</a></nav>
+      <h3 class="refl-h">Differences by ticket</h3>
+      <article class="diff tkb101" id="diff-101">
+        <header class="diff-head">
+          <span class="tk tk101">Ticket 101</span>
+          <h3>Bulldog tee for Tauhid Zaman</h3>
+          <span class="match-pill partial">Different from my plan</span>
+        </header>
+        <div class="diff-grid">
+          <div><p class="label">What I expected</p><p>A sale that had already gone through but was running late. The team would confirm the purchase, check that it shipped, and let Tauhid know it was on the way.</p></div>
+          <div><p class="label">What actually happened</p><p>There was no sale on record and size S was out of stock. The agents sent Tauhid an honest status update, and Accounting prepared the supplier's $840 bill for the tee reprint (the restock) for me to approve. I approved it.</p></div>
+        </div>
+        <p class="label">My reflection</p>
+        <blockquote class="mine">What actually happened was different from what I expected. I assumed this was an earlier sale that had gotten stuck in the warehouse or hadn't been ordered properly. Instead, the agents worked together and figured out that we were out of stock on this exact item. They then lined up the order for more stock and brought it to me to approve. It felt seamless, and I appreciated the work they did. My one piece of feedback: the first time through, it was confusing what I was being asked to approve. It didn't make clear that I was paying for more stock of this product. Once the approval screen spelled that out, it made sense.</blockquote>
+      </article>
+      <article class="diff tkb102" id="diff-102">
+        <header class="diff-head">
+          <span class="tk tk102">Ticket 102</span>
+          <h3>Rent notice from Elm City Properties</h3>
+          <span class="match-pill yes">Matched my plan</span>
+        </header>
+        <div class="diff-grid">
+          <div><p class="label">What I expected</p><p>Facilities confirms we owe the rent, Accounting updates the books and sets up the payment, and the Boss reports back to me.</p></div>
+          <div><p class="label">What actually happened</p><p>Facilities matched the notice to lease 1 ($2,400 due September 2) and confirmed it wasn't already paid. Accounting prepared the payment, and once I approved it the payment was recorded and checking dropped to $160.</p></div>
+        </div>
+        <p class="label">My reflection</p>
+        <blockquote class="mine">This ticket ran just as I expected. The system found the rent on our lease, confirmed it was the right amount, and prepared the payment for me to approve. It ran smoothly.</blockquote>
+      </article>
+      <article class="diff tkb103" id="diff-103">
+        <header class="diff-head">
+          <span class="tk tk103">Ticket 103</span>
+          <h3>Yale AI Club bulk hoodie order</h3>
+          <span class="match-pill no">Not what I planned</span>
+        </header>
+        <div class="diff-grid">
+          <div><p class="label">What I expected</p><p>Inventory confirms we have the hoodies and updates stock, Accounting records the sale and creates an invoice, and Customer Service tells the club the next steps.</p></div>
+          <div><p class="label">What actually happened</p><p>Only 8 of the 20 hoodies were in stock, and we have no discount policy on record, so the team put the request on hold. There was no sale, no invoice and no stock change, and the club was asked for its timing and discount details. About $1,160 of sales at list price walked away.</p></div>
+        </div>
+        <p class="label">My reflection</p>
+        <blockquote class="mine">I was surprised by how this ticket played out. This was a large order, and the system turned it down. Going forward, I need to give the agents better directions so we handle an order like this differently. I'm still surprised that we turned down such a large order.</blockquote>
+      </article>
+
+      <h3 class="refl-h">What would have been simpler as one agent with tools, and why?</h3>
+      <div class="refl-box">
+        <p><span class="tk tk102">Ticket 102</span> Ticket 102 was simple enough for one agent to handle. All we needed to do was pay our rent, which didn't call for extra agents. Bringing in more of them made the process take a little longer and created duplicate work.</p>
+        <p class="from-run"><b>From the run:</b> Accounting was called twice, once by the Boss and once by Facilities. Between them, the agents looked up the checking balance 3 times and pulled the same lease and payment records more than once, for 12 steps in 23 seconds. One agent holding the documents and checking-account tools could have done it in a fraction of that.</p>
+      </div>
+
+      <div class="two-lists">
+        <div class="refl-box good">
+          <h3>New problems this can solve</h3>
+          <ol>
+            <li><b>Real-time cash flow.</b> The checking balance updates every time cash moves, so I can see right away whether we have enough on hand for what's coming due.</li>
+            <li><b>A clear record of where our cash went.</b> The Cash tab lays out each transaction and its effect, what added to our cash and what drew it down, so I can explain the ending balance at a glance.</li>
+            <li><b>A simpler way to run the business.</b> I watched the Accounting agent work out cost of goods sold, margins and gross profit on its own. Having that done for me makes everyday decisions easier.</li>
+          </ol>
+        </div>
+        <div class="refl-box gap">
+          <h3>Problems it can't solve yet</h3>
+          <ol>
+            <li><b>Large or unusual orders.</b> I'm still surprised by how the agents handled ticket 103. We lost a big order because it was more complex than the rules we gave them. Next, I'd build a tool for special orders above a certain size, so they get a real path forward instead of a no.</li>
+            <li><b>Out of stock and short on cash.</b> We need a solution for when an item is out of stock and we don't have the cash to restock it. I'd add a tool that lets an agent request a purchase on a credit card or another form of credit, still with my approval.</li>
+            <li><b>Marketing.</b> Growing the business matters too. I'd add a marketing agent with tools that drive customer outreach.</li>
+          </ol>
+        </div>
+      </div>
+    </div>
+  </section>
+</main>
+
+<footer class="wrap">Facts come from <code>data/campus_customs_new.db</code> on the shop date of August 31, 2026. Expectations are the student's own words.</footer>
+
+<div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+<!-- Ryan Jr., construction cat: black and white, hard hat, holding a sign -->
+<template id="ryan-jr">
+  <svg viewBox="0 0 360 300" role="img" aria-label="Ryan Jr., a black and white cat in a yellow hard hat, holding a Work in Progress sign next to a traffic cone">
+    <!-- ground -->
+    <ellipse cx="170" cy="282" rx="150" ry="10" fill="#000" opacity=".08"/>
+    <!-- traffic cone -->
+    <g>
+      <path d="M38 280 L58 196 L74 196 L94 280 Z" fill="#f26b21"/>
+      <path d="M50 230 L82 230 L86 246 L46 246 Z" fill="#fff"/>
+      <path d="M55 206 L77 206 L79 216 L53 216 Z" fill="#fff"/>
+      <rect x="28" y="276" width="76" height="8" rx="3" fill="#d4551a"/>
+    </g>
+    <!-- tail, curling out to the left, white tip -->
+    <g class="tail">
+      <path d="M124 246 C 92 250, 86 214, 106 196" fill="none" stroke="#141414" stroke-width="16" stroke-linecap="round"/>
+      <circle cx="106" cy="196" r="8.5" fill="#fafafa" stroke="#141414" stroke-width="2"/>
+    </g>
+    <!-- body -->
+    <ellipse cx="168" cy="236" rx="56" ry="48" fill="#141414"/>
+    <!-- white chest bib -->
+    <path d="M146 202 C 156 228, 180 228, 190 202 C 194 236, 186 268, 168 274 C 150 268, 142 236, 146 202 Z" fill="#fafafa"/>
+    <!-- hi-vis vest -->
+    <path d="M124 214 C 128 252, 136 274, 150 280 L 150 222 C 140 214, 132 210, 124 214 Z" fill="#c6f02a" opacity=".95"/>
+    <path d="M212 214 C 208 252, 200 274, 186 280 L 186 222 C 196 214, 204 210, 212 214 Z" fill="#c6f02a" opacity=".95"/>
+    <rect x="128" y="246" width="22" height="5" fill="#e8e8e8" transform="rotate(8 139 248)"/>
+    <rect x="186" y="246" width="22" height="5" fill="#e8e8e8" transform="rotate(-8 197 248)"/>
+    <!-- front paws (white socks) -->
+    <ellipse cx="150" cy="280" rx="15" ry="9" fill="#fafafa" stroke="#141414" stroke-width="2"/>
+    <ellipse cx="186" cy="280" rx="15" ry="9" fill="#fafafa" stroke="#141414" stroke-width="2"/>
+
+    <!-- sign on a post, held up by the right paw -->
+    <g class="sign-group">
+      <rect x="288" y="126" width="7" height="152" rx="2" fill="#8a5a2b"/>
+      <g transform="rotate(-5 292 100)">
+        <rect x="238" y="62" width="114" height="74" rx="8" fill="#f7b500" stroke="#141414" stroke-width="3"/>
+        <rect x="244" y="68" width="102" height="62" rx="5" fill="none" stroke="#141414" stroke-width="1.5"/>
+        <text x="295" y="96" text-anchor="middle" font-family="Arial Black, Arial, sans-serif" font-weight="900" font-size="16" fill="#141414">WORK IN</text>
+        <text x="295" y="117" text-anchor="middle" font-family="Arial Black, Arial, sans-serif" font-weight="900" font-size="15" fill="#141414">PROGRESS</text>
+      </g>
+      <!-- paw gripping the post -->
+      <path d="M210 214 C 236 200, 266 186, 282 172" fill="none" stroke="#141414" stroke-width="17" stroke-linecap="round"/>
+      <ellipse cx="290" cy="168" rx="12" ry="10" fill="#fafafa" stroke="#141414" stroke-width="2"/>
+    </g>
+
+    <!-- head -->
+    <g>
+      <path d="M118 128 L 122 78 L 150 104 Z" fill="#141414"/>
+      <path d="M218 128 L 214 78 L 186 104 Z" fill="#141414"/>
+      <path d="M126 116 L 128 90 L 144 106 Z" fill="#f5a5b8"/>
+      <path d="M210 116 L 208 90 L 192 106 Z" fill="#f5a5b8"/>
+      <ellipse cx="168" cy="146" rx="54" ry="48" fill="#141414"/>
+      <!-- white blaze and muzzle -->
+      <path d="M168 112 C 160 134, 154 146, 150 156 L 186 156 C 182 146, 176 134, 168 112 Z" fill="#fafafa"/>
+      <ellipse cx="168" cy="166" rx="26" ry="20" fill="#fafafa"/>
+      <!-- eyes: one squinting, one wide, very serious foreman energy -->
+      <g class="blink">
+        <ellipse cx="146" cy="142" rx="10" ry="11" fill="#d7e34a"/>
+        <ellipse cx="146" cy="143" rx="3.5" ry="8" fill="#141414"/>
+        <circle cx="148.5" cy="139" r="2" fill="#fff"/>
+      </g>
+      <path d="M180 142 Q 190 136 200 142" fill="none" stroke="#d7e34a" stroke-width="5" stroke-linecap="round"/>
+      <path d="M134 126 L 156 131" stroke="#141414" stroke-width="0"/>
+      <!-- nose, mouth -->
+      <path d="M162 158 L 174 158 L 168 165 Z" fill="#f08aa2"/>
+      <path d="M168 165 Q 162 172 157 168 M168 165 Q 174 172 179 168" fill="none" stroke="#141414" stroke-width="2" stroke-linecap="round"/>
+      <!-- whiskers -->
+      <g stroke="#9a9a9a" stroke-width="1.6" stroke-linecap="round">
+        <path d="M146 166 L 112 160"/><path d="M146 171 L 112 174"/>
+        <path d="M190 166 L 224 160"/><path d="M190 171 L 224 174"/>
+      </g>
+      <!-- pencil behind the ear -->
+      <g transform="rotate(-28 214 108)">
+        <rect x="196" y="104" width="34" height="7" rx="1.5" fill="#f2c94c" stroke="#141414" stroke-width="1"/>
+        <path d="M230 104 L 238 107.5 L 230 111 Z" fill="#e8c9a0" stroke="#141414" stroke-width="1"/>
+        <rect x="192" y="104" width="5" height="7" fill="#f08aa2" stroke="#141414" stroke-width="1"/>
+      </g>
+      <!-- hard hat -->
+      <path d="M116 112 C 118 72, 218 72, 220 112 Z" fill="#ffcc1a" stroke="#141414" stroke-width="2.5"/>
+      <rect x="160" y="80" width="16" height="30" rx="4" fill="#f2b800"/>
+      <rect x="104" y="108" width="128" height="10" rx="5" fill="#f2b800" stroke="#141414" stroke-width="2.5"/>
+      <text x="168" y="104" text-anchor="middle" font-family="Arial, sans-serif" font-weight="800" font-size="9" fill="#141414">FOREMAN</text>
+    </g>
+  </svg>
+</template>
+
+<script>
+(function () {
+  const tabs = Array.from(document.querySelectorAll('.tab'));
+  const panels = Array.from(document.querySelectorAll('.panel'));
+  const toast = document.getElementById('toast');
+  let toastTimer;
+
+  // Put Ryan Jr. in every work-in-progress slot.
+  const art = document.getElementById('ryan-jr');
+  document.querySelectorAll('[data-wip]').forEach(slot => slot.appendChild(art.content.cloneNode(true)));
+
+  function open(id, focus) {
+    tabs.forEach(t => {
+      const on = t.dataset.panel === id;
+      t.setAttribute('aria-selected', on ? 'true' : 'false');
+      t.tabIndex = on ? 0 : -1;
+      t.classList.remove('armed');
+      if (on && focus) t.focus();
+    });
+    panels.forEach(p => { p.hidden = p.id !== id; });
+    toast.classList.remove('show');
+    try { localStorage.setItem('deck-tab', id); } catch (e) { /* storage blocked: fine */ }
+  }
+
+  function say(msg) {
+    toast.textContent = msg;
+    toast.classList.add('show');
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(() => toast.classList.remove('show'), 1600);
+  }
+
+  tabs.forEach((t, i) => {
+    // Double-click opens a tab. A single click just points the way.
+    t.addEventListener('dblclick', () => open(t.dataset.panel));
+    t.addEventListener('click', e => {
+      if (e.detail >= 2) { open(t.dataset.panel); return; }  // second click of a double-click
+      if (t.getAttribute('aria-selected') !== 'true') {
+        tabs.forEach(x => x.classList.remove('armed'));
+        t.classList.add('armed');
+        say('Double-click to open ' + t.textContent.trim());
+      }
+    });
+    t.addEventListener('keydown', e => {
+      if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); open(t.dataset.panel, true); }
+      if (e.key === 'ArrowRight' || e.key === 'ArrowLeft') {
+        e.preventDefault();
+        const next = tabs[(i + (e.key === 'ArrowRight' ? 1 : tabs.length - 1)) % tabs.length];
+        next.focus();
+      }
+    });
+  });
+
+  document.querySelectorAll('[data-open]').forEach(card => {
+    card.addEventListener('dblclick', () => open(card.dataset.open));
+    card.addEventListener('click', e => {
+      if (e.detail >= 2) open(card.dataset.open);
+      else say('Double-click to open the ticket');
+    });
+    card.addEventListener('keydown', e => {
+      if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); open(card.dataset.open, true); }
+    });
+  });
+
+  let start = 'overview';
+  try { start = localStorage.getItem('deck-tab') || start; } catch (e) { /* default */ }
+  open(document.getElementById(start) ? start : 'overview');
+})();
+</script>
+</body>
+</html>

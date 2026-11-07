@@ -1,0 +1,16 @@
+# Secrets stay out of the public repo (.env.example is the template)
+.env
+.env.*
+!.env.example
+
+# Local environments and build output
+.venv/
+__pycache__/
+*.pyc
+frontend/node_modules/
+frontend/dist/
+*.tmp
+.DS_Store
+
+# Not part of the submission
+ryan_jr_homework.gif

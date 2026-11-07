@@ -1,0 +1,219 @@
+{
+  "problem": "Problem 9: Resolve the Tickets",
+  "database": "data/campus_customs_new.db",
+  "run_through": "Dashboard (frontend) → backend POST /api/tickets/{id}/start, after POST /api/reset",
+  "starting_checking_balance": 3400.0,
+  "ending_checking_balance": 160.0,
+  "tickets": [
+    {
+      "id": 101,
+      "subject": "Bulldog tee",
+      "requester": "Tauhid Zaman",
+      "final_status": "resolved",
+      "run": {
+        "run_id": "11ad14f3fa2e",
+        "stop_reason": "completed",
+        "loop_steps": 14,
+        "seconds": 28.94,
+        "step_limit": 50
+      },
+      "outcome": "Not fulfilled: the size S tee is out of stock and no sale was ever recorded, so Tauhid got a status update instead of a shipping notice. The owner approved paying the overdue $840 supplier bill (invoice 501) for the tee reprint.",
+      "boss_decision": "Do not mark or fulfill the sale: size S is out of stock and no sale, shipment, or pickup is recorded. Send Tauhid the status update, and present the overdue $840 invoice for owner approval before any payment is made.",
+      "agents": [
+        {
+          "agent": "Boss (King Ryan Jr.)",
+          "tools_used": [
+            "get_tickets",
+            "get_checking_account"
+          ],
+          "asked_for_help": [
+            "accounting",
+            "customer_service",
+            "inventory"
+          ],
+          "contribution": "Read ticket 101, sent it to Inventory, Accounting and Customer Service, checked the checking balance, and decided not to fulfill or mark the sale until stock exists."
+        },
+        {
+          "agent": "Inventory (Squire Biscuit)",
+          "tools_used": [
+            "check_inventory",
+            "find_vendors"
+          ],
+          "asked_for_help": [],
+          "contribution": "Found 0 Classic Bulldog Tees in size S (1 needed, sizes M/L/XL in stock) and saw that open invoice 501 already covers a reprint of this exact tee, so it advised not to reorder. No stock was changed."
+        },
+        {
+          "agent": "Accounting (Lady Ledger)",
+          "tools_used": [
+            "get_checking_account",
+            "get_documents",
+            "get_financials"
+          ],
+          "asked_for_help": [],
+          "contribution": "Read invoice 501 ($840 to Bulldog Print Co, 3 days overdue) and the cash position, and prepared the $840 supplier-bill payment for the owner's approval."
+        },
+        {
+          "agent": "Customer Service (Jingles the Jester)",
+          "tools_used": [
+            "check_order_status",
+            "send_customer_email"
+          ],
+          "asked_for_help": [],
+          "contribution": "Checked the order records (no sale and no shipment recorded) and sent Tauhid an honest status update (simulated email)."
+        }
+      ],
+      "human_approval_needed": true,
+      "approvals": [
+        {
+          "approval_id": 1,
+          "kind": "invoice",
+          "payee": "Bulldog Print Co",
+          "amount": 840.0,
+          "for": "Invoice 501, due 2026-08-28, rush reprint CC-TEE-WHITE S",
+          "decision": "approved",
+          "decided_by": "owner (dashboard approval)",
+          "payment_id": 1
+        }
+      ],
+      "cash_impact": -840.0,
+      "customer_email": {
+        "to": "Tauhid Zaman",
+        "order_status": "update",
+        "subject": "Order status update",
+        "delivery": "SIMULATED: saved to customer_emails, no real email sent"
+      }
+    },
+    {
+      "id": 102,
+      "subject": "Rent due",
+      "requester": "Elm City Properties",
+      "final_status": "resolved",
+      "run": {
+        "run_id": "3580869f39da",
+        "stop_reason": "completed",
+        "loop_steps": 12,
+        "seconds": 23.33,
+        "step_limit": 50
+      },
+      "outcome": "Rent confirmed as owed and paid: the owner approved $2,400 to Elm City Properties, checking dropped to $160, and the lease's next due date moved to 2026-10-02.",
+      "boss_decision": "Submit the $2,400 rent payment for owner approval so it can be paid by the 2026-09-02 due date. No payment has been made yet.",
+      "agents": [
+        {
+          "agent": "Boss (King Ryan Jr.)",
+          "tools_used": [
+            "get_tickets",
+            "get_checking_account"
+          ],
+          "asked_for_help": [
+            "accounting",
+            "facilities"
+          ],
+          "contribution": "Read ticket 102, sent it to Facilities and Accounting, checked the checking balance, and submitted the $2,400 rent for the owner's approval."
+        },
+        {
+          "agent": "Facilities (Sir Pawcelot)",
+          "tools_used": [
+            "get_documents"
+          ],
+          "asked_for_help": [
+            "accounting"
+          ],
+          "contribution": "Confirmed the notice matches lease 1 (Elm City Properties, $2,400 due 2026-09-02) and that no earlier rent payment was recorded, then asked Accounting to prepare the payment."
+        },
+        {
+          "agent": "Accounting (Lady Ledger)",
+          "tools_used": [
+            "get_checking_account",
+            "get_documents",
+            "get_financials"
+          ],
+          "asked_for_help": [],
+          "contribution": "Checked cash ($2,560 at the time) and prepared the $2,400 rent payment proposal, showing $160 would be left."
+        }
+      ],
+      "human_approval_needed": true,
+      "approvals": [
+        {
+          "approval_id": 2,
+          "kind": "rent",
+          "payee": "Elm City Properties",
+          "amount": 2400.0,
+          "for": "Lease 1 rent for Chapel Street shop due 2026-09-02",
+          "decision": "approved",
+          "decided_by": "owner (dashboard approval)",
+          "payment_id": 2
+        }
+      ],
+      "cash_impact": -2400.0,
+      "customer_email": null
+    },
+    {
+      "id": 103,
+      "subject": "Bulk hoodie discount",
+      "requester": "Yale AI Club",
+      "final_status": "resolved",
+      "run": {
+        "run_id": "1c44dd316554",
+        "stop_reason": "completed",
+        "loop_steps": 12,
+        "seconds": 30.74,
+        "step_limit": 50
+      },
+      "outcome": "Sale put on hold: only 8 of 20 hoodies in stock and no discount policy, so no discount, no sale and no stock change. The club was asked for its timing and discount details. In effect a $1,160 sale was turned down for now.",
+      "boss_decision": "Do not approve or quote a bulk-discount sale for Yale AI Club at this time. The request is on hold because only 8 of the requested 20 size-M hoodies are in stock, and the shop has no recorded discount policy or specified discount rate to evaluate.",
+      "agents": [
+        {
+          "agent": "Boss (King Ryan Jr.)",
+          "tools_used": [
+            "get_tickets",
+            "get_checking_account"
+          ],
+          "asked_for_help": [
+            "accounting",
+            "customer_service",
+            "inventory"
+          ],
+          "contribution": "Read ticket 103, sent it to Inventory, Accounting and Customer Service, and put the request on hold: not enough stock and no discount policy to price it."
+        },
+        {
+          "agent": "Inventory (Squire Biscuit)",
+          "tools_used": [
+            "check_inventory"
+          ],
+          "asked_for_help": [],
+          "contribution": "Found 8 of the 20 size M navy hoodies on hand in Aisle A (12 short). No restock search, no stock change."
+        },
+        {
+          "agent": "Accounting (Lady Ledger)",
+          "tools_used": [
+            "get_checking_account",
+            "get_documents",
+            "get_financials",
+            "get_tickets"
+          ],
+          "asked_for_help": [],
+          "contribution": "Priced the order: 20 at $58 list = $1,160 revenue, $720 gross profit, 62.1% margin. With no discount rate or policy on record, it approved no discount and prepared no payment."
+        },
+        {
+          "agent": "Customer Service (Jingles the Jester)",
+          "tools_used": [
+            "get_tickets",
+            "check_inventory",
+            "send_customer_email"
+          ],
+          "asked_for_help": [],
+          "contribution": "Told the Yale AI Club (simulated email, backordered) that only 8 are in stock and no bulk discount can be quoted yet, and asked for their timing and discount details."
+        }
+      ],
+      "human_approval_needed": false,
+      "approvals": [],
+      "cash_impact": 0,
+      "customer_email": {
+        "to": "Yale AI Club",
+        "order_status": "backordered",
+        "subject": "Update on your bulk hoodie request",
+        "delivery": "SIMULATED: saved to customer_emails, no real email sent"
+      }
+    }
+  ]
+}
