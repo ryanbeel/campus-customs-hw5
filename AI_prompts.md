@@ -277,3 +277,7 @@ This file records the prompts I gave my vibe coder for each problem.
 > I need you to push the code to a public GitHub repository so graders can easily close it. I am going to submit the repo URL and also put it in output/gifhub_url.txt.
 >
 > Don’t push my real .env into the GitHub repo. I do need to include both database files under data/ (the original and my working copy) so the graders can easily apply. Attached is the expected layout.
+
+**Prompt 2:**
+
+> sorry can you give me the exact link i need to submit? also is the other file i need to turn in, in the folder?
