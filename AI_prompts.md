@@ -281,3 +281,7 @@ This file records the prompts I gave my vibe coder for each problem.
 **Prompt 2:**
 
 > sorry can you give me the exact link i need to submit? also is the other file i need to turn in, in the folder?
+
+**Prompt 3:**
+
+> hmm i dont see the requirements.tx
